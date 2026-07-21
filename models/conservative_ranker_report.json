@@ -1,0 +1,330 @@
+{
+  "folds": {
+    "conservative_001": {
+      "steps": 30,
+      "top1": 0.03333333333333333,
+      "top3": 0.1,
+      "mrr": 0.12042160808850823,
+      "mean_rank": 32.733333333333334,
+      "hard_negative_count": 8,
+      "hard_negative_mean_rank": 96.25
+    },
+    "conservative_002": {
+      "steps": 26,
+      "top1": 0.038461538461538464,
+      "top3": 0.23076923076923078,
+      "mrr": 0.20365748034017267,
+      "mean_rank": 15.423076923076923,
+      "hard_negative_count": 6,
+      "hard_negative_mean_rank": 66.0
+    },
+    "conservative_003": {
+      "steps": 25,
+      "top1": 0.04,
+      "top3": 0.08,
+      "mrr": 0.14605408359357955,
+      "mean_rank": 22.8,
+      "hard_negative_count": 9,
+      "hard_negative_mean_rank": 125.88888888888889
+    },
+    "conservative_004": {
+      "steps": 30,
+      "top1": 0.0,
+      "top3": 0.06666666666666667,
+      "mrr": 0.09754934208349672,
+      "mean_rank": 32.4,
+      "hard_negative_count": 6,
+      "hard_negative_mean_rank": 103.5
+    },
+    "conservative_005": {
+      "steps": 33,
+      "top1": 0.06060606060606061,
+      "top3": 0.2727272727272727,
+      "mrr": 0.19966727575352053,
+      "mean_rank": 35.42424242424242,
+      "hard_negative_count": 2,
+      "hard_negative_mean_rank": 67.5
+    },
+    "conservative_006": {
+      "steps": 30,
+      "top1": 0.1,
+      "top3": 0.1,
+      "mrr": 0.1965805767015833,
+      "mean_rank": 24.766666666666666,
+      "hard_negative_count": 3,
+      "hard_negative_mean_rank": 98.33333333333333
+    },
+    "conservative_007": {
+      "steps": 30,
+      "top1": 0.03333333333333333,
+      "top3": 0.2,
+      "mrr": 0.15369119494027145,
+      "mean_rank": 34.7,
+      "hard_negative_count": 2,
+      "hard_negative_mean_rank": 43.5
+    },
+    "conservative_008": {
+      "steps": 28,
+      "top1": 0.03571428571428571,
+      "top3": 0.10714285714285714,
+      "mrr": 0.13344043911973572,
+      "mean_rank": 28.571428571428573,
+      "hard_negative_count": 0,
+      "hard_negative_mean_rank": null
+    },
+    "conservative_009": {
+      "steps": 23,
+      "top1": 0.08695652173913043,
+      "top3": 0.17391304347826086,
+      "mrr": 0.17849684226164175,
+      "mean_rank": 24.08695652173913,
+      "hard_negative_count": 0,
+      "hard_negative_mean_rank": null
+    },
+    "conservative_010": {
+      "steps": 27,
+      "top1": 0.0,
+      "top3": 0.18518518518518517,
+      "mrr": 0.1349961616163932,
+      "mean_rank": 31.444444444444443,
+      "hard_negative_count": 0,
+      "hard_negative_mean_rank": null
+    }
+  },
+  "aggregate": {
+    "top1": 0.0425531914893617,
+    "top3": 0.1524822695035461,
+    "mrr": 0.15627448356020893,
+    "mean_rank": 28.656028368794328,
+    "steps": 282,
+    "hard_negative_mean_rank": 85.85317460317461
+  },
+  "training": {
+    "data_files": [
+      "data\\conservative_001.jsonl",
+      "data\\conservative_002.jsonl",
+      "data\\conservative_003.jsonl",
+      "data\\conservative_004.jsonl",
+      "data\\conservative_005.jsonl",
+      "data\\conservative_006.jsonl",
+      "data\\conservative_007.jsonl",
+      "data\\conservative_008.jsonl",
+      "data\\conservative_009.jsonl",
+      "data\\conservative_010.jsonl"
+    ],
+    "episodes": 10,
+    "rows": 318,
+    "decision_cases": 282,
+    "hard_negative_annotations": 36,
+    "pair_count": 11316,
+    "feature_count": 99,
+    "rule_blend_weight": 2.0,
+    "rule_score_key": "rule_conservative_score",
+    "top_weights": {
+      "most_negative": [
+        [
+          "rule_cons_low_foundation_fill",
+          -3.5407484328832832
+        ],
+        [
+          "cand_low_height_bonus",
+          -2.201477916215783
+        ],
+        [
+          "cand_side_util_gain",
+          -1.9238452229782657
+        ],
+        [
+          "rule_cons_side_util_gain",
+          -1.9238452229782657
+        ],
+        [
+          "cand_reach_gain",
+          -1.0986921742204776
+        ],
+        [
+          "eng_aggressive_progress",
+          -1.0986921742204776
+        ],
+        [
+          "rule_progress_after_stall",
+          -0.9467352387016325
+        ],
+        [
+          "brick_A'",
+          -0.9324035664887775
+        ],
+        [
+          "rule_vertical_stack",
+          -0.9278458716854436
+        ],
+        [
+          "rule_closure_gain",
+          -0.8645126384397436
+        ],
+        [
+          "rule_cons_no_progress_penalty",
+          -0.7750632182254075
+        ],
+        [
+          "brick_F'",
+          -0.6940088136389219
+        ],
+        [
+          "cand_left_component_contact",
+          -0.6478801887318646
+        ],
+        [
+          "brick_C'",
+          -0.5904364575031436
+        ],
+        [
+          "cand_closure_gain",
+          -0.5573995556467535
+        ],
+        [
+          "rule_cons_margin_bonus",
+          -0.46235360317374163
+        ],
+        [
+          "eng_reinforce_after_cantilever",
+          -0.4053980273570346
+        ],
+        [
+          "rule_reinforce_after_cantilever",
+          -0.4053980273570346
+        ],
+        [
+          "rule_cons_repair_after_cantilever",
+          -0.4053980273570346
+        ],
+        [
+          "rule_cons_closure_gain",
+          -0.38496466861664863
+        ],
+        [
+          "rule_cons_stable_bonus",
+          -0.3410327939591685
+        ],
+        [
+          "cand_gap_coverage_after",
+          -0.33442778953842756
+        ],
+        [
+          "side_R",
+          -0.27142417343258346
+        ],
+        [
+          "rule_stall_penalty",
+          -0.25644584221817557
+        ],
+        [
+          "rule_stable_bonus",
+          -0.2301971359224324
+        ]
+      ],
+      "most_positive": [
+        [
+          "cand_is_foundation_move",
+          4.927275861402496
+        ],
+        [
+          "cand_support_efficiency",
+          3.590594263192381
+        ],
+        [
+          "rule_cons_reach_gain",
+          1.19760659254088
+        ],
+        [
+          "rule_cons_brick_lock_quality",
+          1.1032768404667623
+        ],
+        [
+          "rule_brick_lock_quality",
+          1.1032768404667623
+        ],
+        [
+          "rule_cons_contact_quality",
+          1.093220421564472
+        ],
+        [
+          "rule_contact_quality",
+          1.093220421564472
+        ],
+        [
+          "rule_cons_base_contact_quality",
+          1.0774309933116062
+        ],
+        [
+          "rule_base_contact",
+          1.0774309933116062
+        ],
+        [
+          "cand_margin_after",
+          1.0167818641262436
+        ],
+        [
+          "cand_margin_delta",
+          1.0123926559124423
+        ],
+        [
+          "rule_cons_margin_delta_bonus",
+          0.9923050166993462
+        ],
+        [
+          "cand_contact_width",
+          0.8199153161733462
+        ],
+        [
+          "cand_base_contact_width",
+          0.808073244983716
+        ],
+        [
+          "cand_brick_contact_width",
+          0.7355178936444867
+        ],
+        [
+          "rule_cons_trapped_void_penalty",
+          0.6974309261811558
+        ],
+        [
+          "cand_trapped_void_penalty",
+          0.6974309261811558
+        ],
+        [
+          "cand_right_component_contact",
+          0.6383475416328929
+        ],
+        [
+          "rule_high_before_foundation",
+          0.5911033050325282
+        ],
+        [
+          "rule_cons_controlled_cantilever_after_repair",
+          0.5900108215867862
+        ],
+        [
+          "rule_cons_downhill_stair_penalty",
+          0.490144213928722
+        ],
+        [
+          "rule_downhill_stair_penalty",
+          0.490144213928722
+        ],
+        [
+          "eng_downhill_stair_penalty",
+          0.490144213928722
+        ],
+        [
+          "brick_C",
+          0.4877138054217427
+        ],
+        [
+          "rule_multi_support_quality",
+          0.44049467046856733
+        ]
+      ]
+    }
+  }
+}

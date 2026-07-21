@@ -1,0 +1,329 @@
+{
+  "folds": {
+    "aggressive_001": {
+      "steps": 19,
+      "top1": 0.05263157894736842,
+      "top3": 0.21052631578947367,
+      "mrr": 0.17830109288314794,
+      "mean_rank": 19.36842105263158,
+      "hard_negative_count": 15,
+      "hard_negative_mean_rank": 66.86666666666666
+    },
+    "aggressive_002": {
+      "steps": 16,
+      "top1": 0.0625,
+      "top3": 0.1875,
+      "mrr": 0.1699469060262698,
+      "mean_rank": 42.125,
+      "hard_negative_count": 9,
+      "hard_negative_mean_rank": 119.33333333333333
+    },
+    "aggressive_003": {
+      "steps": 17,
+      "top1": 0.058823529411764705,
+      "top3": 0.11764705882352941,
+      "mrr": 0.15279508256851915,
+      "mean_rank": 27.176470588235293,
+      "hard_negative_count": 23,
+      "hard_negative_mean_rank": 76.52173913043478
+    },
+    "aggressive_004": {
+      "steps": 12,
+      "top1": 0.0,
+      "top3": 0.3333333333333333,
+      "mrr": 0.19810884833820616,
+      "mean_rank": 16.416666666666668,
+      "hard_negative_count": 11,
+      "hard_negative_mean_rank": 70.72727272727273
+    },
+    "aggressive_005": {
+      "steps": 19,
+      "top1": 0.0,
+      "top3": 0.15789473684210525,
+      "mrr": 0.1406293824962917,
+      "mean_rank": 18.210526315789473,
+      "hard_negative_count": 9,
+      "hard_negative_mean_rank": 131.66666666666666
+    },
+    "aggressive_006": {
+      "steps": 15,
+      "top1": 0.13333333333333333,
+      "top3": 0.13333333333333333,
+      "mrr": 0.2203662052233481,
+      "mean_rank": 16.666666666666668,
+      "hard_negative_count": 6,
+      "hard_negative_mean_rank": 57.333333333333336
+    },
+    "aggressive_007": {
+      "steps": 13,
+      "top1": 0.07692307692307693,
+      "top3": 0.15384615384615385,
+      "mrr": 0.19954045055259628,
+      "mean_rank": 12.384615384615385,
+      "hard_negative_count": 7,
+      "hard_negative_mean_rank": 90.14285714285714
+    },
+    "aggressive_008": {
+      "steps": 15,
+      "top1": 0.06666666666666667,
+      "top3": 0.26666666666666666,
+      "mrr": 0.23273574559380186,
+      "mean_rank": 10.266666666666667,
+      "hard_negative_count": 7,
+      "hard_negative_mean_rank": 48.57142857142857
+    },
+    "aggressive_009": {
+      "steps": 13,
+      "top1": 0.07692307692307693,
+      "top3": 0.46153846153846156,
+      "mrr": 0.3050429962194668,
+      "mean_rank": 11.384615384615385,
+      "hard_negative_count": 4,
+      "hard_negative_mean_rank": 55.25
+    },
+    "aggressive_010": {
+      "steps": 14,
+      "top1": 0.14285714285714285,
+      "top3": 0.21428571428571427,
+      "mrr": 0.2320392190897258,
+      "mean_rank": 13.142857142857142,
+      "hard_negative_count": 8,
+      "hard_negative_mean_rank": 87.625
+    }
+  },
+  "aggregate": {
+    "top1": 0.06535947712418301,
+    "top3": 0.21568627450980393,
+    "mrr": 0.19842036111047842,
+    "mean_rank": 19.241830065359476,
+    "steps": 153,
+    "hard_negative_mean_rank": 80.40382975719932
+  },
+  "training": {
+    "data_files": [
+      "data\\aggressive_001.jsonl",
+      "data\\aggressive_002.jsonl",
+      "data\\aggressive_003.jsonl",
+      "data\\aggressive_004.jsonl",
+      "data\\aggressive_005.jsonl",
+      "data\\aggressive_006.jsonl",
+      "data\\aggressive_007.jsonl",
+      "data\\aggressive_008.jsonl",
+      "data\\aggressive_009.jsonl",
+      "data\\aggressive_010.jsonl"
+    ],
+    "episodes": 10,
+    "rows": 252,
+    "decision_cases": 153,
+    "hard_negative_annotations": 99,
+    "pair_count": 12339,
+    "feature_count": 74,
+    "rule_blend_weight": 2.0,
+    "top_weights": {
+      "most_negative": [
+        [
+          "brick_A'",
+          -3.946346128126457
+        ],
+        [
+          "cand_side_util_gain",
+          -3.6927775602935498
+        ],
+        [
+          "brick_C'",
+          -1.7516359860168351
+        ],
+        [
+          "cand_foundation_gain",
+          -1.3625529584637768
+        ],
+        [
+          "side_R",
+          -1.0601848076650195
+        ],
+        [
+          "cand_left_component_contact",
+          -0.9625706988927575
+        ],
+        [
+          "brick_A",
+          -0.9204830641864613
+        ],
+        [
+          "cand_closure_gain",
+          -0.7373913571199102
+        ],
+        [
+          "cand_wz",
+          -0.6840560793199714
+        ],
+        [
+          "cand_low_height_bonus",
+          -0.5413434502346139
+        ],
+        [
+          "cand_world_cz",
+          -0.5411596401016737
+        ],
+        [
+          "eng_downhill_stair_penalty",
+          -0.5257044860157317
+        ],
+        [
+          "rule_downhill_stair_penalty",
+          -0.5257044860157317
+        ],
+        [
+          "cand_trapped_void_penalty",
+          -0.5243763226167841
+        ],
+        [
+          "cand_reach_gain",
+          -0.5171126610852494
+        ],
+        [
+          "eng_aggressive_progress",
+          -0.5171126610852494
+        ],
+        [
+          "brick_B'",
+          -0.4622313002279287
+        ],
+        [
+          "cand_gap_coverage_after",
+          -0.442419013592893
+        ],
+        [
+          "eng_reinforce_after_cantilever",
+          -0.4348726158268688
+        ],
+        [
+          "rule_reinforce_after_cantilever",
+          -0.4348726158268688
+        ],
+        [
+          "rule_vertical_stack",
+          -0.29138818277465717
+        ],
+        [
+          "eng_locks_two_supports",
+          -0.2876477765089716
+        ],
+        [
+          "rule_locks_two_supports",
+          -0.2876477765089716
+        ],
+        [
+          "cand_spans_both_components",
+          -0.23542566938424295
+        ],
+        [
+          "cand_closes_bridge",
+          -0.23542566938424295
+        ]
+      ],
+      "most_positive": [
+        [
+          "cand_support_efficiency",
+          3.7328694939144884
+        ],
+        [
+          "rule_multi_support_quality",
+          2.368573811238265
+        ],
+        [
+          "rule_progress_after_stall",
+          1.6488753357991301
+        ],
+        [
+          "cand_margin_after",
+          1.4780421595852795
+        ],
+        [
+          "cand_margin_delta",
+          1.4498493835654978
+        ],
+        [
+          "rule_reach_gain",
+          1.3830419569374524
+        ],
+        [
+          "rule_base_contact",
+          1.377060379114784
+        ],
+        [
+          "rule_lock_span_quality",
+          1.221344056096356
+        ],
+        [
+          "eng_lock_span_quality",
+          1.221344056096356
+        ],
+        [
+          "side_L",
+          1.0601848076650195
+        ],
+        [
+          "cand_base_contact_width",
+          1.0327952843360826
+        ],
+        [
+          "brick_E",
+          1.0303848055043445
+        ],
+        [
+          "rule_high_before_foundation",
+          1.0303045922010554
+        ],
+        [
+          "brick_C",
+          1.0153491368275311
+        ],
+        [
+          "cand_right_component_contact",
+          0.9503603888264008
+        ],
+        [
+          "rule_contact_quality",
+          0.8782716431011521
+        ],
+        [
+          "cand_is_foundation_move",
+          0.8389193047237254
+        ],
+        [
+          "rule_aggressive_score",
+          0.79107415181838
+        ],
+        [
+          "brick_D",
+          0.75008393989202
+        ],
+        [
+          "cand_balance_gain",
+          0.7183073598034945
+        ],
+        [
+          "cand_contact_width",
+          0.6587037323258427
+        ],
+        [
+          "rule_brick_lock_quality",
+          0.6119333794393934
+        ],
+        [
+          "brick_E'",
+          0.5553517275960826
+        ],
+        [
+          "rule_margin_bonus",
+          0.5344987063208827
+        ],
+        [
+          "brick_F",
+          0.5170681664639594
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,482 @@
+{
+  "notes": "Measured real-world placement poses for aggressive_001.",
+  "steps": [
+    {
+      "brick": "D",
+      "operator": "human",
+      "place_gripper": 75.0,
+      "place_pose": {
+        "x": -100.0,
+        "y": -207.9,
+        "yaw": 115.0,
+        "z": 112.8
+      },
+      "side": "L",
+      "source_grid_id": "r1c0",
+      "source_pose": {
+        "x": 125.0,
+        "y": -55.4,
+        "yaw": 113.75,
+        "z": 99.05
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 1,
+      "updated_at": "2026-06-25T18:03:54",
+      "wx": 14.0,
+      "wz": 1.5642247142857144
+    },
+    {
+      "brick": "D",
+      "operator": "robot",
+      "place_gripper": 105.0,
+      "place_pose": {
+        "x": -162.0,
+        "y": -198.9,
+        "yaw": 110.0,
+        "z": 119.8
+      },
+      "side": "L",
+      "source_grid_id": "r1c1",
+      "source_pose": {
+        "x": 168.333,
+        "y": -55.4,
+        "yaw": 117.917,
+        "z": 99.883
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 2,
+      "updated_at": "2026-06-25T18:09:36",
+      "wx": 5.0,
+      "wz": 1.5642247142857144
+    },
+    {
+      "brick": "C",
+      "operator": "human",
+      "place_gripper": 100.0,
+      "place_pose": {
+        "x": 124.0,
+        "y": -204.9,
+        "yaw": 165.0,
+        "z": 113.8
+      },
+      "side": "R",
+      "source_grid_id": "r1c0",
+      "source_pose": {
+        "x": -247.5,
+        "y": -22.9,
+        "yaw": 142.5,
+        "z": 100.3
+      },
+      "source_refill_required": false,
+      "source_side": "L",
+      "step": 3,
+      "updated_at": "2026-06-25T18:14:46",
+      "wx": 47.0,
+      "wz": 1.5642247142857144
+    },
+    {
+      "brick": "E'",
+      "operator": "robot",
+      "place_gripper": 95.0,
+      "place_pose": {
+        "x": 71.0,
+        "y": -211.9,
+        "yaw": 155.0,
+        "z": 112.8
+      },
+      "side": "R",
+      "source_grid_id": "r2c2",
+      "source_pose": {
+        "x": 216.667,
+        "y": 22.1,
+        "yaw": 145.833,
+        "z": 101.967
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 4,
+      "updated_at": "2026-06-25T18:17:27",
+      "wx": 37.5,
+      "wz": 1.5642247142857144
+    },
+    {
+      "brick": "E",
+      "operator": "human",
+      "place_gripper": 105.0,
+      "place_pose": {
+        "x": -96.0,
+        "y": -209.9,
+        "yaw": 115.0,
+        "z": 122.0
+      },
+      "side": "L",
+      "source_grid_id": "r2c0",
+      "source_pose": {
+        "x": 115.0,
+        "y": 27.1,
+        "yaw": 147.5,
+        "z": 100.3
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 5,
+      "updated_at": "2026-06-25T18:26:05",
+      "wx": 15.0,
+      "wz": 2.8014038625491984
+    },
+    {
+      "brick": "B",
+      "operator": "robot",
+      "place_gripper": 105.0,
+      "place_pose": {
+        "x": -158.0,
+        "y": -204.9,
+        "yaw": 100.0,
+        "z": 122.8
+      },
+      "side": "L",
+      "source_grid_id": "r0c0",
+      "source_pose": {
+        "x": 125.0,
+        "y": -137.9,
+        "yaw": 90.0,
+        "z": 97.8
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 6,
+      "updated_at": "2026-06-25T18:32:42",
+      "wx": 8.0,
+      "wz": 2.8014038625491984
+    },
+    {
+      "brick": "F",
+      "operator": "human",
+      "place_gripper": 105.0,
+      "place_pose": {
+        "x": -158.0,
+        "y": -200.9,
+        "yaw": 105.0,
+        "z": 135.8
+      },
+      "side": "L",
+      "source_grid_id": "r2c0",
+      "source_pose": {
+        "x": -245.0,
+        "y": 62.1,
+        "yaw": 125.0,
+        "z": 102.8
+      },
+      "source_refill_required": false,
+      "source_side": "L",
+      "step": 7,
+      "updated_at": "2026-06-25T18:49:52",
+      "wx": 8.0,
+      "wz": 4.038583010812682
+    },
+    {
+      "brick": "F'",
+      "operator": "robot",
+      "place_gripper": 100.0,
+      "place_pose": {
+        "x": -94.0,
+        "y": -204.9,
+        "yaw": 120.0,
+        "z": 142.8
+      },
+      "side": "L",
+      "source_grid_id": "r2c2",
+      "source_pose": {
+        "x": -161.7,
+        "y": 55.4,
+        "yaw": 125.0,
+        "z": 106.1
+      },
+      "source_refill_required": false,
+      "source_side": "L",
+      "step": 8,
+      "updated_at": "2026-06-25T18:52:59",
+      "wx": 15.5,
+      "wz": 4.657172584944424
+    },
+    {
+      "brick": "C",
+      "operator": "human",
+      "place_gripper": 110.0,
+      "place_pose": {
+        "x": -126.0,
+        "y": -204.9,
+        "yaw": 110.0,
+        "z": 144.8
+      },
+      "side": "L",
+      "source_grid_id": "r1c1",
+      "source_pose": {
+        "x": -206.7,
+        "y": -25.4,
+        "yaw": 145.8,
+        "z": 102.0
+      },
+      "source_refill_required": false,
+      "source_side": "L",
+      "step": 9,
+      "updated_at": "2026-06-25T18:55:04",
+      "wx": 12.5,
+      "wz": 5.894351733207907
+    },
+    {
+      "brick": "B",
+      "operator": "robot",
+      "place_gripper": 95.0,
+      "place_pose": {
+        "x": 122.0,
+        "y": -205.9,
+        "yaw": 165.0,
+        "z": 126.8
+      },
+      "side": "R",
+      "source_grid_id": "r0c1",
+      "source_pose": {
+        "x": 168.333,
+        "y": -137.9,
+        "yaw": 99.167,
+        "z": 98.633
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 10,
+      "updated_at": "2026-06-25T19:01:48",
+      "wx": 45.5,
+      "wz": 3.4199934366809397
+    },
+    {
+      "brick": "D",
+      "operator": "human",
+      "place_gripper": 105.0,
+      "place_pose": {
+        "x": 72.0,
+        "y": -208.9,
+        "yaw": 155.0,
+        "z": 125.8
+      },
+      "side": "R",
+      "source_grid_id": "r1c2",
+      "source_pose": {
+        "x": 211.667,
+        "y": -55.4,
+        "yaw": 122.083,
+        "z": 100.717
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 11,
+      "updated_at": "2026-06-25T19:05:25",
+      "wx": 36.5,
+      "wz": 3.4199934366809397
+    },
+    {
+      "brick": "D",
+      "operator": "robot",
+      "place_gripper": 100.0,
+      "place_pose": {
+        "x": 131.0,
+        "y": -207.9,
+        "yaw": 165.0,
+        "z": 134.8
+      },
+      "side": "R",
+      "source_grid_id": "r1c3",
+      "source_pose": {
+        "x": 255.0,
+        "y": -55.4,
+        "yaw": 126.25,
+        "z": 101.55
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 12,
+      "updated_at": "2026-06-25T19:08:04",
+      "wx": 45.5,
+      "wz": 4.657172584944423
+    },
+    {
+      "brick": "D",
+      "operator": "human",
+      "place_gripper": 115.0,
+      "place_pose": {
+        "x": -52.0,
+        "y": -210.9,
+        "yaw": 130.0,
+        "z": 147.8
+      },
+      "side": "L",
+      "source_grid_id": "r1c0",
+      "source_pose": {
+        "x": 125.0,
+        "y": -55.4,
+        "yaw": 113.75,
+        "z": 99.05
+      },
+      "source_refill_required": true,
+      "source_side": "R",
+      "step": 13,
+      "updated_at": "2026-06-25T19:10:11",
+      "wx": 20.0,
+      "wz": 6.5129413073396485
+    },
+    {
+      "brick": "F'",
+      "operator": "robot",
+      "place_gripper": 110.0,
+      "place_pose": {
+        "x": 29.0,
+        "y": -210.9,
+        "yaw": 150.0,
+        "z": 137.8
+      },
+      "side": "R",
+      "source_grid_id": "r2c3",
+      "source_pose": {
+        "x": -120.0,
+        "y": 52.1,
+        "yaw": 125.0,
+        "z": 107.8
+      },
+      "source_refill_required": false,
+      "source_side": "L",
+      "step": 14,
+      "updated_at": "2026-06-25T19:12:59",
+      "wx": 33.5,
+      "wz": 4.657172584944424
+    },
+    {
+      "brick": "E'",
+      "operator": "human",
+      "place_gripper": 110.0,
+      "place_pose": {
+        "x": 112.0,
+        "y": -207.9,
+        "yaw": 165.0,
+        "z": 146.8
+      },
+      "side": "R",
+      "source_grid_id": "r2c3",
+      "source_pose": {
+        "x": 255.0,
+        "y": 27.1,
+        "yaw": 145.0,
+        "z": 102.8
+      },
+      "source_refill_required": false,
+      "source_side": "R",
+      "step": 15,
+      "updated_at": "2026-06-25T19:15:16",
+      "wx": 42.0,
+      "wz": 5.894351733207907
+    },
+    {
+      "brick": "E'",
+      "operator": "robot",
+      "place_gripper": 95.0,
+      "place_pose": {
+        "x": -87.0,
+        "y": -207.9,
+        "yaw": 120.0,
+        "z": 154.8
+      },
+      "side": "L",
+      "source_grid_id": "r2c2",
+      "source_pose": {
+        "x": 216.667,
+        "y": 22.1,
+        "yaw": 145.833,
+        "z": 101.967
+      },
+      "source_refill_required": true,
+      "source_side": "R",
+      "step": 16,
+      "updated_at": "2026-06-25T19:20:12",
+      "wx": 15.0,
+      "wz": 7.131530881471391
+    },
+    {
+      "brick": "D",
+      "operator": "human",
+      "place_gripper": 110.0,
+      "place_pose": {
+        "x": 37.0,
+        "y": -212.9,
+        "yaw": 150.0,
+        "z": 152.8
+      },
+      "side": "R",
+      "source_grid_id": "r1c1",
+      "source_pose": {
+        "x": 168.333,
+        "y": -55.4,
+        "yaw": 117.917,
+        "z": 99.883
+      },
+      "source_refill_required": true,
+      "source_side": "R",
+      "step": 17,
+      "updated_at": "2026-06-25T19:24:00",
+      "wx": 32.0,
+      "wz": 6.512941307339649
+    },
+    {
+      "brick": "B",
+      "operator": "robot",
+      "place_gripper": 115.0,
+      "place_pose": {
+        "x": 56.0,
+        "y": -214.9,
+        "yaw": 155.0,
+        "z": 157.8
+      },
+      "side": "R",
+      "source_grid_id": "r0c0",
+      "source_pose": {
+        "x": 125.0,
+        "y": -137.9,
+        "yaw": 90.0,
+        "z": 97.8
+      },
+      "source_refill_required": true,
+      "source_side": "R",
+      "step": 18,
+      "updated_at": "2026-06-25T19:25:47",
+      "wx": 38.0,
+      "wz": 7.750120455603134
+    },
+    {
+      "brick": "C'",
+      "operator": "human",
+      "place_gripper": 115.0,
+      "place_pose": {
+        "x": -40.0,
+        "y": -213.9,
+        "yaw": 130.0,
+        "z": 153.8
+      },
+      "side": "L",
+      "source_grid_id": "r1c2",
+      "source_pose": {
+        "x": -165.8,
+        "y": -27.9,
+        "yaw": 149.2,
+        "z": 103.6
+      },
+      "source_refill_required": false,
+      "source_side": "L",
+      "step": 19,
+      "updated_at": "2026-06-25T19:28:47",
+      "wx": 27.5,
+      "wz": 7.131530881471391
+    }
+  ],
+  "updated_at": "2026-06-25T19:28:47",
+  "version": 1
+}

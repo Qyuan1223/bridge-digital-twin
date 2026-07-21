@@ -17,6 +17,7 @@ Model assumptions:
 
 Controls:
     A-F          select brick type
+    T            flip selected brick 180 degrees (except D)
     5 / 9 / 13   set base width preset and reset scene
     Left click   human placement; robot evaluates, may reject, then responds
     Space        robot places the current recommendation
@@ -28,7 +29,9 @@ Controls:
 
 from __future__ import annotations
 
+from datetime import datetime
 import math
+from pathlib import Path
 import sys
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -46,10 +49,19 @@ BBOTTOM = WIN_H - 92
 CELL_MM = 7.0
 CELL = 1.0
 X_GRID = 0.5
+# Hex-lattice moves project to half-cell offsets in x when the brick steps
+# diagonally in z. This is not a half-edge contact: candidate validation still
+# requires complete lattice edge coincidence.
+PLACE_GRID = 0.5
 HEX_RISE_MM = 4.330127018922193
 HEX_RISE = HEX_RISE_MM / CELL_MM
 EDGE_TOL = 0.03
 ALIGN_TOL = 0.04
+CONTACT_TOL = 0.08
+# Area below this is treated as contour/scan noise, not true material overlap.
+# In world units, 0.09 is still visibly smaller than a real half-cell intrusion,
+# but it keeps Rhino-derived edge coincidences from being rejected as overlap.
+OVERLAP_AREA_TOL = 0.09
 GAP_MM = 140.005
 GAP_W = GAP_MM / CELL_MM
 OUTER_MARGIN_W = 8.0
@@ -63,13 +75,23 @@ CONSERVATIVE_MARGIN = 0.55
 AGGRESSIVE_PREP_MARGIN = 0.85
 CONSERVATIVE_PREP_MARGIN = 1.15
 AGGRESSIVE_FOUNDATION_TARGET = 0.68
-CONSERVATIVE_FOUNDATION_TARGET = 0.82
+CONSERVATIVE_FOUNDATION_TARGET = 0.70
 LOW_LAYER_CLEARANCE = 1.15
+AGGRESSIVE_LAYER_REAR_BRICKS = 1
+CLOSING_MAX_GAP_W = 5.0
+CONSERVATIVE_CLOSING_MAX_GAP_W = 3.0
+CONSERVATIVE_CLOSE_PRIORITY_GAP_W = 6.0
 MAX_BRICKS = 50
 CACHE_LIMIT = 512
+PLACE_RULE_VERSION = 5
+SINGLE_LAYER_MAX_BRICK_WIDTH = 9.75
+MIN_SUPPORT_CONTACT_WIDTH = 1.6
+MIN_SUPPORT_CONTACT_RATIO = 0.24
+MIN_BASE_CONTACT_RATIO = 0.38
 
 PLACE_OPTIONS_CACHE: Dict[Tuple, List[Tuple[float, List["SurfaceSeg"]]]] = {}
 RECOMMEND_CACHE: Dict[Tuple, List["Rec"]] = {}
+LOG_PATH = Path(__file__).with_name("bridge_log.txt")
 
 
 @dataclass
@@ -261,10 +283,12 @@ BASE_COORDS_MM: Dict[int, List[Tuple[float, float]]] = {
 
 BRICK_SEQ = "ABCDEF"
 BRICK_X_PHASE_CELLS: Dict[str, float] = {
-    # A's Rhino contour starts half a cell out of phase with the other five
-    # bricks. Without this correction, its real interlock positions land on
-    # half-step wx values and are unreachable by the integer-step placer.
+    # These Rhino contours start half a cell out of phase with the common
+    # construction grid. Without this correction, their real interlock
+    # positions land on half-step wx values and are unreachable by the
+    # integer-step placer.
     "A": 0.0,
+    "E": 0.0,
 }
 
 
@@ -333,6 +357,8 @@ class BrickType:
     cx: float
     cz: float
     mass: float
+    base_key: str = ""
+    flipped: bool = False
 
 
 @dataclass(frozen=True)
@@ -383,7 +409,32 @@ def make_brick(key: str, coords_mm: Sequence[Tuple[float, float]]) -> BrickType:
     height = max(z for _x, z in poly)
     top_edges = horizontal_edges(poly, cz, "top")
     bottom_edges = horizontal_edges(poly, cz, "bottom")
-    return BrickType(key, poly, top_edges, bottom_edges, x_min, x_max, width, height, cx, cz, area)
+    return BrickType(key, poly, top_edges, bottom_edges, x_min, x_max, width, height, cx, cz, area, key, False)
+
+
+def flipped_poly(poly: Sequence[Tuple[float, float]]) -> Tuple[Tuple[float, float], ...]:
+    pts = list(poly[:-1] if poly[0] == poly[-1] else poly)
+    x_min = min(x for x, _z in pts)
+    x_max = max(x for x, _z in pts)
+    z_min = min(z for _x, z in pts)
+    z_max = max(z for _x, z in pts)
+    flipped = tuple((x_min + x_max - x, z_min + z_max - z) for x, z in pts)
+    if flipped[0] != flipped[-1]:
+        flipped = flipped + (flipped[0],)
+    return flipped
+
+
+def make_flipped_brick(source: BrickType) -> BrickType:
+    key = f"{source.key}'"
+    poly = flipped_poly(source.poly)
+    cx, cz, area = centroid_area(poly)
+    x_min = min(x for x, _z in poly)
+    x_max = max(x for x, _z in poly)
+    width = x_max - x_min
+    height = max(z for _x, z in poly)
+    top_edges = horizontal_edges(poly, cz, "top")
+    bottom_edges = horizontal_edges(poly, cz, "bottom")
+    return BrickType(key, poly, top_edges, bottom_edges, x_min, x_max, width, height, cx, cz, area, source.base_key, True)
 
 
 def make_base(span: int, coords_mm: Sequence[Tuple[float, float]]) -> BaseType:
@@ -394,8 +445,26 @@ def make_base(span: int, coords_mm: Sequence[Tuple[float, float]]) -> BaseType:
     return BaseType(span, poly, horizontal_edges(poly, cz, "top"), width, height)
 
 
-BTYPES: Dict[str, BrickType] = {k: make_brick(k, v) for k, v in BRICK_COORDS_MM.items()}
+PRIMARY_BTYPES: Dict[str, BrickType] = {k: make_brick(k, v) for k, v in BRICK_COORDS_MM.items()}
+BTYPES: Dict[str, BrickType] = dict(PRIMARY_BTYPES)
+for _key in ("A", "B", "C", "E", "F"):
+    _flipped = make_flipped_brick(PRIMARY_BTYPES[_key])
+    BTYPES[_flipped.key] = _flipped
+BRICK_LIBRARY_KEYS: Tuple[str, ...] = ("A", "A'", "B", "B'", "C", "C'", "D", "E", "E'", "F", "F'")
 BASE_TYPES: Dict[int, BaseType] = {k: make_base(k, v) for k, v in BASE_COORDS_MM.items()}
+
+
+def brick_color_key(bt_or_key) -> str:
+    key = bt_or_key.key if isinstance(bt_or_key, BrickType) else str(bt_or_key)
+    return key[0].upper()
+
+
+def toggle_flip_key(key: str) -> str:
+    if key.startswith("D"):
+        return "D"
+    base = key[0].upper()
+    flipped = f"{base}'"
+    return base if key.endswith("'") else (flipped if flipped in BTYPES else base)
 
 
 # Structure model ------------------------------------------------------------
@@ -483,6 +552,182 @@ def overlap(a0: float, a1: float, b0: float, b1: float) -> Optional[Tuple[float,
 
 def world_poly(bt: BrickType, wx: float, wz: float) -> Tuple[Tuple[float, float], ...]:
     return tuple((wx + x, wz + z) for x, z in bt.poly)
+
+
+def _edge_lr(
+    p0: Tuple[float, float],
+    p1: Tuple[float, float],
+) -> Tuple[float, float, float, float]:
+    if p0[0] <= p1[0]:
+        return p0[0], p0[1], p1[0], p1[1]
+    return p1[0], p1[1], p0[0], p0[1]
+
+
+def _edge_key(p0: Tuple[float, float], p1: Tuple[float, float]) -> Tuple[int, int, int, int]:
+    x0, z0, x1, z1 = _edge_lr(p0, p1)
+    return (
+        round(x0 * 2),
+        round(z0 / HEX_RISE * 1000),
+        round(x1 * 2),
+        round(z1 / HEX_RISE * 1000),
+    )
+
+
+def _cell_key(x0: float, z0: float) -> Tuple[int, int]:
+    return (round(x0 * 2), round(z0 / HEX_RISE * 1000))
+
+
+def hex_cell_edges(
+    x0: float,
+    x1: float,
+    z0: float,
+) -> List[Tuple[str, Tuple[float, float], Tuple[float, float]]]:
+    h = HEX_RISE
+    return [
+        ("lower", (x0 - 0.5, z0 + h), (x0, z0)),
+        ("lower", (x0, z0), (x1, z0)),
+        ("lower", (x1, z0), (x1 + 0.5, z0 + h)),
+        ("upper", (x0 - 0.5, z0 + h), (x0, z0 + 2.0 * h)),
+        ("upper", (x0, z0 + 2.0 * h), (x1, z0 + 2.0 * h)),
+        ("upper", (x1, z0 + 2.0 * h), (x1 + 0.5, z0 + h)),
+    ]
+
+
+def brick_cell_edges(
+    bt: BrickType,
+    wx: float,
+    wz: float,
+    want: str,
+    owner: int,
+) -> List[Tuple[float, float, float, float, int]]:
+    counts: Dict[Tuple[int, int, int, int], int] = {}
+    entries: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] = []
+    for x0, x1, z0 in bt.bottom_edges:
+        for kind, p0, p1 in hex_cell_edges(wx + x0, wx + x1, wz + z0):
+            entries.append((kind, p0, p1))
+            key = _edge_key(p0, p1)
+            counts[key] = counts.get(key, 0) + 1
+    edges: List[Tuple[float, float, float, float, int]] = []
+    for kind, p0, p1 in entries:
+        if kind != want or counts[_edge_key(p0, p1)] != 1:
+            continue
+        edges.append((*_edge_lr(p0, p1), owner))
+    return edges
+
+
+def brick_cell_keys(bt: BrickType, wx: float, wz: float) -> set[Tuple[int, int]]:
+    return {_cell_key(wx + x0, wz + z0) for x0, _x1, z0 in bt.bottom_edges}
+
+
+def poly_contact_edges(
+    poly: Sequence[Tuple[float, float]],
+    want: str,
+    owner: int,
+) -> List[Tuple[float, float, float, float, int]]:
+    ccw = signed_area(poly) > 0.0
+    edges: List[Tuple[float, float, float, float, int]] = []
+    for p0, p1 in poly_edges(poly):
+        dx = p1[0] - p0[0]
+        if abs(dx) <= EDGE_TOL:
+            continue
+        is_lower = dx > 0 if ccw else dx < 0
+        if want == "lower" and not is_lower:
+            continue
+        if want == "upper" and is_lower:
+            continue
+        edges.append((*_edge_lr(p0, p1), owner))
+    return edges
+
+
+def lattice_support_edges(existing: Sequence["BrickInst"]) -> List[Tuple[float, float, float, float, int]]:
+    left_base, right_base = base_world_polys()
+    edges = poly_contact_edges(left_base, "upper", BASE_LEFT)
+    edges.extend(poly_contact_edges(right_base, "upper", BASE_RIGHT))
+    for b in existing:
+        edges.extend(brick_cell_edges(b.btype, b.wx, b.wz, "upper", b.id))
+    return edges
+
+
+def lattice_occupied_keys(existing: Sequence["BrickInst"]) -> set[Tuple[int, int]]:
+    occupied: set[Tuple[int, int]] = set()
+    for b in existing:
+        occupied.update(brick_cell_keys(b.btype, b.wx, b.wz))
+    return occupied
+
+
+def _edges_coincident(
+    a: Tuple[float, float, float, float, int],
+    b: Tuple[float, float, float, float, int],
+    eps: float = CONTACT_TOL,
+) -> bool:
+    return (
+        abs(a[0] - b[0]) <= eps
+        and abs(a[1] - b[1]) <= eps
+        and abs(a[2] - b[2]) <= eps
+        and abs(a[3] - b[3]) <= eps
+    )
+
+
+def lattice_contacts(
+    bt: BrickType,
+    wx: float,
+    wz: float,
+    support_edges: Sequence[Tuple[float, float, float, float, int]],
+) -> List[SurfaceSeg]:
+    contacts: List[SurfaceSeg] = []
+    for lower in brick_cell_edges(bt, wx, wz, "lower", 0):
+        for upper in support_edges:
+            if not _edges_coincident(lower, upper):
+                continue
+            x0 = min(lower[0], lower[2])
+            x1 = max(lower[0], lower[2])
+            contacts.append(SurfaceSeg(x0, x1, (lower[1] + lower[3]) / 2.0, upper[4]))
+    return merge_contacts(contacts)
+
+
+def compute_lattice_drops(
+    bt: BrickType,
+    wx: float,
+    existing: Sequence["BrickInst"],
+    max_results: int = 64,
+) -> List[Tuple[float, List[SurfaceSeg]]]:
+    support_edges = lattice_support_edges(existing)
+    if not support_edges:
+        return []
+    occupied = lattice_occupied_keys(existing)
+    local_lower_edges = brick_cell_edges(bt, 0.0, 0.0, "lower", 0)
+
+    candidates: List[float] = []
+
+    def add_candidate(value: float) -> None:
+        if not any(abs(value - old) <= 1e-7 for old in candidates):
+            candidates.append(value)
+
+    for lx0, lz0, lx1, lz1, _owner in local_lower_edges:
+        wx0 = wx + lx0
+        wx1 = wx + lx1
+        for sx0, sz0, sx1, sz1, _sowner in support_edges:
+            if abs(wx0 - sx0) > CONTACT_TOL or abs(wx1 - sx1) > CONTACT_TOL:
+                continue
+            wz0 = sz0 - lz0
+            if abs((wz0 + lz1) - sz1) <= CONTACT_TOL:
+                add_candidate(wz0)
+
+    if not candidates:
+        return []
+
+    base_polys = base_world_polys()
+    legal: List[Tuple[float, List[SurfaceSeg]]] = []
+    for wz in sorted(candidates, reverse=True):
+        if brick_cell_keys(bt, wx, wz) & occupied:
+            continue
+        candidate_poly = world_poly(bt, wx, wz)
+        if any(polys_overlap_area(candidate_poly, base_poly) for base_poly in base_polys):
+            continue
+        contacts = lattice_contacts(bt, wx, wz, support_edges)
+        if contact_width(contacts) >= 0.2:
+            legal.append((wz, contacts))
+    return _select_drop_options(legal, max_results)
 
 
 def base_world_polys() -> Tuple[Tuple[Tuple[float, float], ...], Tuple[Tuple[float, float], ...]]:
@@ -697,6 +942,24 @@ def edge_slope(p0: Tuple[float, float], p1: Tuple[float, float]) -> Optional[flo
     return (p1[1] - p0[1]) / dx
 
 
+def nearly_equal(a: float, b: float, eps: float = ALIGN_TOL) -> bool:
+    return abs(a - b) <= eps
+
+
+def complete_edge_contact(
+    hit0: float,
+    hit1: float,
+    ax0: float,
+    ax1: float,
+    bx0: float,
+    bx1: float,
+    eps: float = ALIGN_TOL,
+) -> bool:
+    upper_full = nearly_equal(hit0, ax0, eps) and nearly_equal(hit1, ax1, eps)
+    lower_full = nearly_equal(hit0, bx0, eps) and nearly_equal(hit1, bx1, eps)
+    return upper_full or lower_full
+
+
 def _boundary_contact_segments(
     upper: Sequence[Tuple[float, float]],
     lower: Sequence[Tuple[float, float]],
@@ -720,9 +983,13 @@ def _boundary_contact_segments(
             lslope = edge_slope(lo0, lo1)
             if lslope is None or abs(uslope - lslope) > 0.02:
                 continue
+            lx0 = min(lo0[0], lo1[0])
+            lx1 = max(lo0[0], lo1[0])
             hit0 = max(ux0, min(lo0[0], lo1[0]))
             hit1 = min(ux1, max(lo0[0], lo1[0]))
             if hit1 - hit0 <= 0.05:
+                continue
+            if not complete_edge_contact(hit0, hit1, ux0, ux1, lx0, lx1):
                 continue
             mid = (hit0 + hit1) / 2
             uz = segment_z_at(up0, up1, mid)
@@ -737,43 +1004,119 @@ def _boundary_contact_segments(
     if exact:
         return merge_contacts(exact)
 
-    step = 0.025
-    samples = max(1, int(math.ceil((x1 - x0) / step)))
-    dx = (x1 - x0) / samples
-    runs: List[Tuple[float, float]] = []
-    run_start: Optional[float] = None
-    last_x: Optional[float] = None
+    # Contact is only legal when a real edge of the candidate and a real edge
+    # of the support are collinear and coincident over a visible segment. The
+    # old sampled fallback could turn near-misses or half-step touches into
+    # support, which made illegal half-brick placements appear valid.
+    return []
 
-    for i in range(samples):
-        x = x0 + (i + 0.5) * dx
-        upper_intervals = _vertical_fill_intervals(upper, x)
-        lower_intervals = _vertical_fill_intervals(lower, x)
-        touching = False
-        for ub, _ut in upper_intervals:
-            for _lb, lt in lower_intervals:
-                if ub >= lt - eps and abs(ub - lt) <= eps:
-                    touching = True
-                    break
-            if touching:
-                break
 
-        if touching:
-            if run_start is None:
-                run_start = x - dx / 2
-            last_x = x + dx / 2
-        elif run_start is not None and last_x is not None:
-            runs.append((run_start, last_x))
-            run_start = None
-            last_x = None
+def _raw_boundary_contact_segments(
+    upper: Sequence[Tuple[float, float]],
+    lower: Sequence[Tuple[float, float]],
+    owner: int,
+    eps: float = CONTACT_TOL,
+) -> List[Tuple[SurfaceSeg, float, float]]:
+    raw: List[Tuple[SurfaceSeg, float, float]] = []
+    for up0, up1 in poly_edges(upper):
+        uslope = edge_slope(up0, up1)
+        if uslope is None:
+            continue
+        ux0 = min(up0[0], up1[0])
+        ux1 = max(up0[0], up1[0])
+        for lo0, lo1 in poly_edges(lower):
+            lslope = edge_slope(lo0, lo1)
+            if lslope is None or abs(uslope - lslope) > 0.02:
+                continue
+            lx0 = min(lo0[0], lo1[0])
+            lx1 = max(lo0[0], lo1[0])
+            hit0 = max(ux0, lx0)
+            hit1 = min(ux1, lx1)
+            if hit1 - hit0 <= 0.05:
+                continue
+            mid = (hit0 + hit1) / 2
+            uz = segment_z_at(up0, up1, mid)
+            lz = segment_z_at(lo0, lo1, mid)
+            if uz is None or lz is None or abs(uz - lz) > eps:
+                continue
+            upper_bottom = any(abs(ub - uz) <= eps for ub, _ut in _vertical_fill_intervals(upper, mid))
+            lower_top = any(abs(lt - lz) <= eps for _lb, lt in _vertical_fill_intervals(lower, mid))
+            if not upper_bottom or not lower_top:
+                continue
+            raw.append((SurfaceSeg(hit0, hit1, (uz + lz) / 2, owner), ux0, ux1))
+    return raw
 
-    if run_start is not None and last_x is not None:
-        runs.append((run_start, last_x))
 
-    return [
-        SurfaceSeg(max(x0, a), min(x1, b), z_fallback, owner)
-        for a, b in runs
-        if b - a > 0.05
-    ]
+def _covered_by_segments(x0: float, x1: float, segments: Sequence[SurfaceSeg]) -> bool:
+    cursor = x0
+    for seg in sorted(segments, key=lambda s: s.x0):
+        if seg.x1 <= cursor + ALIGN_TOL:
+            continue
+        if seg.x0 > cursor + ALIGN_TOL:
+            return False
+        cursor = max(cursor, seg.x1)
+        if cursor >= x1 - ALIGN_TOL:
+            return True
+    return cursor >= x1 - ALIGN_TOL
+
+
+def multi_segment_candidate_contacts(
+    raw: Sequence[Tuple[SurfaceSeg, float, float]],
+) -> List[SurfaceSeg]:
+    if len(raw) < 2:
+        return []
+    pieces = [seg for seg, _ex0, _ex1 in raw]
+    total_width = sum(max(0.0, seg.x1 - seg.x0) for seg in pieces)
+    span = max(seg.x1 for seg in pieces) - min(seg.x0 for seg in pieces)
+    touched_edges = {
+        (round(ex0, 4), round(ex1, 4), round(seg.z, 4))
+        for seg, ex0, ex1 in raw
+    }
+    support_owners = {seg.owner for seg in pieces}
+    if len(touched_edges) < 2 and len(support_owners) < 2:
+        return []
+    if total_width < 0.45 or span < 0.75:
+        return []
+    return merge_contacts(pieces)
+
+
+def complete_candidate_edge_contacts(
+    candidate_poly: Sequence[Tuple[float, float]],
+    supports: Sequence[Tuple[int, Tuple[Tuple[float, float], ...]]],
+) -> List[SurfaceSeg]:
+    raw: List[Tuple[SurfaceSeg, float, float]] = []
+    for owner, spoly in supports:
+        raw.extend(_raw_boundary_contact_segments(candidate_poly, spoly, owner))
+
+    contacts: List[SurfaceSeg] = []
+    for up0, up1 in poly_edges(candidate_poly):
+        uslope = edge_slope(up0, up1)
+        if uslope is None:
+            continue
+        ux0 = min(up0[0], up1[0])
+        ux1 = max(up0[0], up1[0])
+        mid = (ux0 + ux1) / 2
+        uz = segment_z_at(up0, up1, mid)
+        if uz is None:
+            continue
+        upper_bottom = any(abs(ub - uz) <= CONTACT_TOL for ub, _ut in _vertical_fill_intervals(candidate_poly, mid))
+        if not upper_bottom:
+            continue
+        pieces = [
+            seg
+            for seg, ex0, ex1 in raw
+            if nearly_equal(ex0, ux0, CONTACT_TOL)
+            and nearly_equal(ex1, ux1, CONTACT_TOL)
+            and abs(seg.z - uz) <= CONTACT_TOL
+        ]
+        if pieces and _covered_by_segments(ux0, ux1, pieces):
+            contacts.extend(pieces)
+    # A placement can be supported by one complete bottom edge plus several
+    # smaller interlocking contacts on other bricks. Returning as soon as a
+    # complete edge is found hides those extra supports from the stability
+    # check, so keep both complete-edge and multi-segment contacts.
+    contacts = merge_contacts(list(contacts) + multi_segment_candidate_contacts(raw))
+    return contacts
 
 
 def expanded_contacts(
@@ -812,7 +1155,37 @@ def polys_overlap_area(
     if ax1 <= bx0 + eps or bx1 <= ax0 + eps or az1 <= bz0 + eps or bz1 <= az0 + eps:
         return False
 
-    return sampled_overlap_area(a, b, eps) > 1e-4
+    return sampled_overlap_area(a, b, eps) > OVERLAP_AREA_TOL
+
+
+def material_overlaps_existing(bt: BrickType, wx: float, wz: float, existing: Sequence["BrickInst"]) -> bool:
+    candidate_poly = world_poly(bt, wx, wz)
+    return any(
+        polys_overlap_area(candidate_poly, world_poly(other.btype, other.wx, other.wz))
+        for other in existing
+    )
+
+
+def vertical_drop_path_blocked(
+    bt: BrickType,
+    wx: float,
+    wz: float,
+    existing: Sequence[BrickInst],
+    max_interlock_layers: int = 3,
+) -> bool:
+    if not existing:
+        return False
+    layer_height = 2.0 * HEX_RISE
+    max_interlock_depth = max_interlock_layers * layer_height + ALIGN_TOL
+    candidate_top = wz + bt.height
+    candidate_x0 = wx + bt.x_min
+    candidate_x1 = wx + bt.x_max
+    highest_overlap_top = -math.inf
+    for other in existing:
+        if not overlap(candidate_x0, candidate_x1, other.x0, other.x1):
+            continue
+        highest_overlap_top = max(highest_overlap_top, other.wz + other.btype.height)
+    return highest_overlap_top > candidate_top + max_interlock_depth
 
 
 def local_bottom_at(bt: BrickType, lx: float) -> Optional[float]:
@@ -875,7 +1248,11 @@ def _select_drop_options(
     drops: Sequence[Tuple[float, List[SurfaceSeg]]],
     max_results: int,
 ) -> List[Tuple[float, List[SurfaceSeg]]]:
+    if not drops:
+        return []
+
     selected: List[Tuple[float, List[SurfaceSeg]]] = []
+    per_bucket = max(1, max_results // 3)
 
     def add(drop: Tuple[float, List[SurfaceSeg]]) -> None:
         if len(selected) >= max_results:
@@ -883,14 +1260,23 @@ def _select_drop_options(
         if not any(abs(drop[0] - old[0]) <= ALIGN_TOL for old in selected):
             selected.append(drop)
 
-    if not drops:
-        return []
+    # Keep representative legal placements from the top, bottom, and broadest
+    # contacts. A pure top-down cutoff misses legitimate lower interlocks once
+    # the structure becomes crowded.
+    for drop in sorted(drops, key=lambda d: (-d[0], -contact_width(d[1])))[:per_bucket]:
+        add(drop)
+    for drop in sorted(drops, key=lambda d: (d[0], -contact_width(d[1])))[:per_bucket]:
+        add(drop)
+    for drop in sorted(drops, key=lambda d: (-contact_width(d[1]), -d[0]))[: max_results - len(selected)]:
+        add(drop)
 
-    # Keep a small representative set: active insertion, free drop, and broad
-    # support. This avoids evaluating every possible interlock height.
-    add(min(drops, key=lambda d: d[0]))
-    add(max(drops, key=lambda d: d[0]))
-    add(max(drops, key=lambda d: contact_width(d[1])))
+    if len(selected) < max_results:
+        for drop in sorted(drops, key=lambda d: (-d[0], -contact_width(d[1]))):
+            add(drop)
+            if len(selected) >= max_results:
+                break
+
+    selected.sort(key=lambda d: (-d[0], -contact_width(d[1])))
     return selected
 
 
@@ -899,7 +1285,8 @@ def compute_geometric_drops(
     wx: float,
     surfaces: Sequence[SurfaceSeg],
     supports: Sequence[Tuple[int, Tuple[Tuple[float, float], ...]]],
-    max_results: int = 3,
+    max_results: int = 64,
+    complete_edges: bool = True,
 ) -> List[Tuple[float, List[SurfaceSeg]]]:
     candidates: List[float] = []
 
@@ -941,26 +1328,48 @@ def compute_geometric_drops(
                 if bz is not None and sz is not None:
                     add_candidate(sz - bz)
 
+    if candidates:
+        # A valid interlock can sit one or more vertical pitches below the
+        # first edge/vertex alignment, especially when a lower brick creates a
+        # recess. Add downward-only "settled" heights and let the final
+        # overlap/contact/path tests decide legality.
+        seeds = list(candidates)
+        vertical_step = HEX_RISE / 2.0
+        min_i = -12 if complete_edges else -16
+        max_i = 0 if complete_edges else 16
+        for seed in seeds:
+            for i in range(min_i, max_i + 1):
+                add_candidate(seed + i * vertical_step)
+
     if not candidates:
         return []
 
     legal: List[Tuple[float, List[SurfaceSeg]]] = []
     for wz in sorted(candidates, reverse=True):
         candidate_poly = world_poly(bt, wx, wz)
-        contacts: List[SurfaceSeg] = []
         blocked = False
         for owner, spoly in supports:
             if polys_overlap_area(candidate_poly, spoly):
                 blocked = True
                 break
-            fallback_z = max(z for _x, z in spoly)
-            contacts.extend(_boundary_contact_segments(candidate_poly, spoly, owner, fallback_z))
         if blocked:
             continue
-        contacts = merge_contacts(contacts)
+        if complete_edges:
+            contacts = complete_candidate_edge_contacts(candidate_poly, supports)
+        else:
+            contacts = merge_contacts(
+                [
+                seg
+                for owner, spoly in supports
+                for seg, _ex0, _ex1 in _raw_boundary_contact_segments(candidate_poly, spoly, owner)
+                ]
+            )
         if contact_width(contacts) >= 0.2:
             legal.append((wz, contacts))
 
+    if not complete_edges:
+        legal.sort(key=lambda d: (-d[0], -contact_width(d[1])))
+        return legal[:max_results]
     return _select_drop_options(legal, max_results)
 
 
@@ -1046,6 +1455,58 @@ def cache_put(cache: Dict, key: Tuple, value) -> None:
     cache[key] = value
 
 
+def log_event(tag: str, message: str) -> None:
+    stamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    line = f"[{stamp}] [{tag}] {message}"
+    print(line, flush=True)
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
+
+
+def fmt_contacts(contacts: Sequence[SurfaceSeg]) -> str:
+    if not contacts:
+        return "[]"
+    return "[" + ", ".join(
+        f"({c.x0:.2f}-{c.x1:.2f}@{c.z:.2f}, owner={c.owner})"
+        for c in contacts
+    ) + "]"
+
+
+def fmt_brick(b: Optional[BrickInst]) -> str:
+    if b is None:
+        return "None"
+    return (
+        f"{b.btype.key}#{b.id} actor={b.actor} "
+        f"wx={b.wx:.2f} wz={b.wz:.2f} x=({b.x0:.2f},{b.x1:.2f}) "
+        f"contacts={fmt_contacts(b.contacts)}"
+    )
+
+
+def fmt_state(bridge: "Bridge") -> str:
+    mm = "inf" if bridge.min_margin == math.inf else f"{bridge.min_margin:.3f}"
+    return (
+        f"bricks={len(bridge.bricks)}/{MAX_BRICKS} margin={mm} "
+        f"closed={bridge.bridge_closed} success={bridge.bridge_succeeded} "
+        f"failed={bridge.brick_exhausted} focus={active_user_side(bridge) or 'both'}"
+    )
+
+
+def log_recommendations(recs: Sequence[Rec], label: str = "recs") -> None:
+    if not recs:
+        log_event("RECS", f"{label}: none")
+        return
+    rows = []
+    for r in recs[:3]:
+        rows.append(
+            f"{r.side}:{r.bt.key} wx={r.wx:.2f} wz={r.wz:.2f} "
+            f"score={r.score:.2f} margin={r.margin_after:.2f} intent={r.intent}"
+        )
+    log_event("RECS", f"{label}: " + " | ".join(rows))
+
+
 @dataclass
 class Bridge:
     bricks: List[BrickInst] = field(default_factory=list)
@@ -1067,8 +1528,80 @@ class Bridge:
             surfs.extend(top_surfaces(b))
         return surfs
 
-    def try_place_options(self, bt: BrickType, wx: float, actor: str, max_options: int = 3) -> List[BrickInst]:
-        cache_key = ("place", bridge_state_key(self), bt.key, round(wx, 4), max_options)
+    def contacts_bridge_sides(self, contacts: Sequence[SurfaceSeg]) -> bool:
+        left_component = self.component_from(BASE_LEFT)
+        right_component = self.component_from(BASE_RIGHT)
+        owners = {c.owner for c in contacts}
+        return bool(owners & left_component) and bool(owners & right_component)
+
+    def owner_top_surfaces(self, owner: int) -> List[SurfaceSeg]:
+        if owner in (BASE_LEFT, BASE_RIGHT):
+            return [s for s in base_surfaces() if s.owner == owner]
+        for b in self.bricks:
+            if b.id == owner:
+                return top_surfaces(b)
+        return []
+
+    def is_horizontal_top_support_contact(
+        self,
+        bt: BrickType,
+        wx: float,
+        wz: float,
+        contact: SurfaceSeg,
+    ) -> bool:
+        candidate_bottom = False
+        for x0, x1, z in bt.bottom_edges:
+            hit = overlap(wx + x0, wx + x1, contact.x0, contact.x1)
+            if hit and hit[1] - hit[0] >= 0.20 and abs(wz + z - contact.z) <= CONTACT_TOL:
+                candidate_bottom = True
+                break
+        if not candidate_bottom:
+            return False
+        for surface in self.owner_top_surfaces(contact.owner):
+            hit = overlap(surface.x0, surface.x1, contact.x0, contact.x1)
+            if hit and hit[1] - hit[0] >= 0.20 and abs(surface.z - contact.z) <= CONTACT_TOL:
+                return True
+        return False
+
+    def horizontal_contacts_bridge_sides(
+        self,
+        bt: BrickType,
+        wx: float,
+        wz: float,
+        contacts: Sequence[SurfaceSeg],
+        exclude_id: Optional[int] = None,
+    ) -> bool:
+        left_component = self.component_from(BASE_LEFT, exclude_id=exclude_id)
+        right_component = self.component_from(BASE_RIGHT, exclude_id=exclude_id)
+        left_hit = False
+        right_hit = False
+        for contact in contacts:
+            if not self.is_horizontal_top_support_contact(bt, wx, wz, contact):
+                continue
+            if contact.owner in left_component:
+                left_hit = True
+            if contact.owner in right_component:
+                right_hit = True
+        return left_hit and right_hit
+
+    def is_closing_candidate(self, bt: BrickType, wx: float, wz: float, contacts: Sequence[SurfaceSeg]) -> bool:
+        return (
+            self.remaining_gap <= CLOSING_MAX_GAP_W + CONTACT_TOL
+            and self.remaining_gap <= bt.width + CONTACT_TOL
+            and self.horizontal_contacts_bridge_sides(bt, wx, wz, contacts)
+        )
+
+    def try_place_options(
+        self,
+        bt: BrickType,
+        wx: float,
+        actor: str,
+        max_options: int = 64,
+        complete_edges: bool = True,
+    ) -> List[BrickInst]:
+        if abs(wx - snap_place_x(wx)) > 1e-6:
+            return []
+        cache_key = ("place", PLACE_RULE_VERSION, bridge_state_key(self), bt.key, round(wx, 4), max_options, complete_edges)
         cached = PLACE_OPTIONS_CACHE.get(cache_key)
         if cached is not None:
             return [
@@ -1076,24 +1609,45 @@ class Bridge:
                 for wz, contacts in cached
             ]
 
-        drops = compute_geometric_drops(
-            bt,
-            wx,
-            self.all_surfaces(),
-            support_polys(self.bricks),
-            max_results=max_options,
-        )
+        lattice_drops = compute_lattice_drops(bt, wx, self.bricks, max_results=max_options)
+        # Lattice drops are fast, but they can miss lower interlocks where one
+        # brick is carried by several supports. Always supplement them with the
+        # polygon contact solver and let the real overlap/support checks decide.
+        geometric_drops: List[Tuple[float, List[SurfaceSeg]]] = []
+        if not lattice_drops or actor == "human":
+            geometric_drops = compute_geometric_drops(
+                bt,
+                wx,
+                self.all_surfaces(),
+                support_polys(self.bricks),
+                max_results=max(max_options, 16),
+                complete_edges=complete_edges,
+            )
+        merged_drops: List[Tuple[float, List[SurfaceSeg]]] = []
+        for wz, contacts in list(lattice_drops) + list(geometric_drops):
+            found = False
+            for i, (old_wz, old_contacts) in enumerate(merged_drops):
+                if abs(wz - old_wz) <= ALIGN_TOL:
+                    merged_drops[i] = (old_wz, merge_contacts(list(old_contacts) + list(contacts)))
+                    found = True
+                    break
+            if not found:
+                merged_drops.append((wz, contacts))
+        drops = _select_drop_options(merged_drops, max_options)
         options: List[BrickInst] = []
         for wz, contacts in drops:
-            if contact_width(contacts) < 0.2:
+            closes_bridge = self.is_closing_candidate(bt, wx, wz, contacts)
+            if contact_width(contacts) < 0.2 and not closes_bridge:
                 continue
             candidate_poly = world_poly(bt, wx, wz)
-            if any(
-                polys_overlap_area(candidate_poly, world_poly(existing.btype, existing.wx, existing.wz))
-                for existing in self.bricks
-            ):
+            if material_overlaps_existing(bt, wx, wz, self.bricks):
                 continue
-            options.append(BrickInst(self.next_id, bt, wx, wz, actor, contacts))
+            if not closes_bridge and vertical_drop_path_blocked(bt, wx, wz, self.bricks):
+                continue
+            option = BrickInst(self.next_id, bt, wx, wz, actor, contacts)
+            if not support_contact_ok(option, closes_bridge):
+                continue
+            options.append(option)
         cache_put(
             PLACE_OPTIONS_CACHE,
             cache_key,
@@ -1219,16 +1773,16 @@ class Bridge:
     def dual_base_supported_ids(self) -> set[int]:
         ids: set[int] = set()
         for b in self.bricks:
-            left_component = self.component_from(BASE_LEFT, exclude_id=b.id)
-            right_component = self.component_from(BASE_RIGHT, exclude_id=b.id)
-            owners = {c.owner for c in b.contacts}
-            if owners & left_component and owners & right_component:
+            if self.horizontal_contacts_bridge_sides(b.btype, b.wx, b.wz, b.contacts, exclude_id=b.id):
                 ids.add(b.id)
         return ids
 
     @property
     def closing_brick_ids(self) -> set[int]:
         return self.dual_base_supported_ids()
+
+    def is_closing_brick(self, bid: int) -> bool:
+        return bid in self.closing_brick_ids
 
     @property
     def min_margin(self) -> float:
@@ -1288,7 +1842,7 @@ class Bridge:
 
     @property
     def bridge_succeeded(self) -> bool:
-        return self.bridge_closed and self.structurally_stable
+        return self.bridge_closed
 
     @property
     def brick_exhausted(self) -> bool:
@@ -1318,6 +1872,24 @@ def reach_for_side(brick: BrickInst, side: str) -> float:
 
 def reach_balance(bridge: Bridge) -> float:
     return abs(bridge.left_reach - bridge.right_reach)
+
+
+def no_progress_streak(bridge: Bridge, eps: float = 0.05) -> int:
+    replay = Bridge()
+    streak = 0
+    for b in bridge.bricks:
+        before = replay.left_reach + replay.right_reach
+        replay.bricks.append(
+            BrickInst(b.id, b.btype, b.wx, b.wz, b.actor, list(b.contacts), b.margin)
+        )
+        replay.next_id = max(replay.next_id, b.id + 1)
+        replay.analyse()
+        after = replay.left_reach + replay.right_reach
+        if after - before > eps:
+            streak = 0
+        else:
+            streak += 1
+    return streak
 
 
 def base_contact_width(contacts: Sequence[SurfaceSeg]) -> float:
@@ -1388,6 +1960,56 @@ def foundation_coverage_by_owner(bridge: Bridge) -> Dict[int, float]:
     return coverage
 
 
+def owner_for_side(side: str) -> int:
+    return BASE_LEFT if side == "L" else BASE_RIGHT
+
+
+def foundation_coverage_for_side(bridge: Bridge, side: str) -> float:
+    cov = foundation_coverage_by_owner(bridge)
+    return cov.get(owner_for_side(side), 0.0)
+
+
+def base_span_for_owner(owner: int) -> Tuple[float, float]:
+    if owner == BASE_LEFT:
+        return LAYOUT.left_x0, LAYOUT.left_x0 + LAYOUT.base_w
+    return LAYOUT.right_x0, LAYOUT.right_x0 + LAYOUT.base_w
+
+
+def base_cell_occupancy(bridge: Bridge, owner: int, cell: float = CELL) -> List[bool]:
+    span0, span1 = base_span_for_owner(owner)
+    count = max(1, int(math.ceil((span1 - span0) / cell)))
+    occ = [False] * count
+    for x0, x1 in low_foundation_intervals(bridge, owner):
+        first = max(0, int(math.floor((x0 - span0) / cell)))
+        last = min(count - 1, int(math.ceil((x1 - span0) / cell)) - 1)
+        for i in range(first, last + 1):
+            c0 = span0 + i * cell
+            c1 = min(span1, c0 + cell)
+            if min(x1, c1) - max(x0, c0) >= cell * 0.45:
+                occ[i] = True
+    return occ
+
+
+def base_cell_utilization_for_side(bridge: Bridge, side: str) -> float:
+    occ = base_cell_occupancy(bridge, owner_for_side(side))
+    return sum(1 for filled in occ if filled) / max(1, len(occ))
+
+
+def base_trapped_void_score_for_side(bridge: Bridge, side: str) -> float:
+    occ = base_cell_occupancy(bridge, owner_for_side(side))
+    if len(occ) < 3:
+        return 0.0
+    trapped = 0
+    for i, filled in enumerate(occ):
+        if filled:
+            continue
+        left_filled = any(occ[:i])
+        right_filled = any(occ[i + 1 :])
+        if left_filled and right_filled:
+            trapped += 1
+    return trapped / len(occ)
+
+
 def foundation_coverage(bridge: Bridge) -> float:
     cov = foundation_coverage_by_owner(bridge)
     return min(cov.get(BASE_LEFT, 0.0), cov.get(BASE_RIGHT, 0.0))
@@ -1406,6 +2028,10 @@ def foundation_target(strategy: str) -> float:
 
 def foundation_stage_required(bridge: Bridge, strategy: str) -> bool:
     return foundation_coverage(bridge) < foundation_target(strategy)
+
+
+def foundation_stage_required_for_side(bridge: Bridge, strategy: str, side: str) -> bool:
+    return foundation_coverage_for_side(bridge, side) < foundation_target(strategy)
 
 
 def is_foundation_move(bi: BrickInst) -> bool:
@@ -1483,6 +2109,430 @@ def foundation_score(bridge: Bridge, bi: BrickInst) -> float:
     return early * (0.65 * base_bonus + 0.35 * low_bonus)
 
 
+def normalized_margin(value: float) -> float:
+    if value == math.inf:
+        return 1.0
+    return min(1.0, max(0.0, value))
+
+
+def stable_enough_margin(value: float) -> bool:
+    return value >= MIN_ACCEPT_MARGIN
+
+
+def normalized_contact_width(bi: BrickInst) -> float:
+    return min(1.0, contact_width(bi.contacts) / max(1e-6, bi.btype.width))
+
+
+def support_contact_ok(bi: BrickInst, closes_bridge: bool = False) -> bool:
+    if closes_bridge:
+        return True
+    total = contact_width(bi.contacts)
+    if total < MIN_SUPPORT_CONTACT_WIDTH:
+        owners = {c.owner for c in bi.contacts}
+        brick_owners = {owner for owner in owners if owner > 0}
+        if len(brick_owners) < 2:
+            return False
+        span = max(c.x1 for c in bi.contacts) - min(c.x0 for c in bi.contacts)
+        ratio = total / max(1e-6, bi.btype.width)
+        min_span = min(2.0, bi.btype.width * 0.30)
+        if total < 1.0 or ratio < 0.16 or span < min_span:
+            return False
+        return True
+    ratio = total / max(1e-6, bi.btype.width)
+    if base_contact_width(bi.contacts) >= 0.2:
+        return ratio >= MIN_BASE_CONTACT_RATIO
+    return ratio >= MIN_SUPPORT_CONTACT_RATIO
+
+
+def joint_reinforcement_score(before: "Bridge", candidate: BrickInst) -> float:
+    contact_by_owner: Dict[int, float] = {}
+    for c in candidate.contacts:
+        if c.owner <= 0:
+            continue
+        contact_by_owner[c.owner] = contact_by_owner.get(c.owner, 0.0) + max(0.0, c.x1 - c.x0)
+    if len(contact_by_owner) < 2:
+        return 0.0
+
+    by_id = {b.id: b for b in before.bricks}
+    owners = [owner for owner, width in contact_by_owner.items() if width >= 0.45 and owner in by_id]
+    if len(owners) < 2:
+        return 0.0
+
+    best = 0.0
+    for i, left_id in enumerate(owners):
+        for right_id in owners[i + 1 :]:
+            a = by_id[left_id]
+            b = by_id[right_id]
+            if abs(layer_key(a.wz) - layer_key(b.wz)) > HEX_RISE + ALIGN_TOL:
+                continue
+            seam0 = min(a.x1, b.x1)
+            seam1 = max(a.x0, b.x0)
+            if seam1 < seam0:
+                seam_x = (max(a.x0, b.x0) + min(a.x1, b.x1)) / 2.0
+            else:
+                seam_x = (seam0 + seam1) / 2.0
+            if not (candidate.x0 - ALIGN_TOL <= seam_x <= candidate.x1 + ALIGN_TOL):
+                continue
+            pair_contact = contact_by_owner[left_id] + contact_by_owner[right_id]
+            contact_score = min(1.0, pair_contact / max(1e-6, candidate.btype.width * 0.45))
+            center_bonus = 1.0 - min(
+                1.0,
+                abs(candidate.world_cx - seam_x) / max(1e-6, candidate.btype.width * 0.5),
+            )
+            best = max(best, 0.75 * contact_score + 0.25 * center_bonus)
+    return best
+
+
+def _contact_width_by_owner(candidate: BrickInst) -> Dict[int, float]:
+    widths: Dict[int, float] = {}
+    for c in candidate.contacts:
+        if c.owner <= 0:
+            continue
+        widths[c.owner] = widths.get(c.owner, 0.0) + max(0.0, c.x1 - c.x0)
+    return widths
+
+
+def _pair_seam_x(a: BrickInst, b: BrickInst) -> float:
+    seam0 = min(a.x1, b.x1)
+    seam1 = max(a.x0, b.x0)
+    if seam1 < seam0:
+        return (max(a.x0, b.x0) + min(a.x1, b.x1)) / 2.0
+    return (seam0 + seam1) / 2.0
+
+
+def pair_has_upper_lock(before: Bridge, a: BrickInst, b: BrickInst, seam_x: float) -> bool:
+    for child in before.bricks:
+        if child.id in (a.id, b.id):
+            continue
+        if child.wz <= max(a.wz, b.wz) + ALIGN_TOL:
+            continue
+        contact_by_owner = _contact_width_by_owner(child)
+        if contact_by_owner.get(a.id, 0.0) < 0.35 or contact_by_owner.get(b.id, 0.0) < 0.35:
+            continue
+        if child.x0 - ALIGN_TOL <= seam_x <= child.x1 + ALIGN_TOL:
+            return True
+    return False
+
+
+def exposed_cantilever_pairs(before: Bridge, side: str) -> List[Tuple[BrickInst, BrickInst, float, float]]:
+    pairs: List[Tuple[BrickInst, BrickInst, float, float]] = []
+    min_pair_reach = 1.2
+    max_pair_gap = 2.2
+    for z in side_layer_levels(before, side):
+        layer = sorted(side_bricks_on_layer(before, side, z), key=lambda b: b.x0)
+        for i, a in enumerate(layer):
+            for b in layer[i + 1 :]:
+                if b.x0 - a.x1 > max_pair_gap:
+                    break
+                pair_reach = max(reach_for_side(a, side), reach_for_side(b, side))
+                if pair_reach < min_pair_reach:
+                    continue
+                seam_x = _pair_seam_x(a, b)
+                if not (min(a.x0, b.x0) - ALIGN_TOL <= seam_x <= max(a.x1, b.x1) + ALIGN_TOL):
+                    continue
+                if pair_has_upper_lock(before, a, b, seam_x):
+                    continue
+                severity = min(1.0, pair_reach / 4.0)
+                pairs.append((a, b, seam_x, severity))
+    return pairs
+
+
+def urgent_joint_reinforcement_score(before: Bridge, candidate: BrickInst, side: str) -> float:
+    contact_by_owner = _contact_width_by_owner(candidate)
+    if len(contact_by_owner) < 2:
+        return 0.0
+    best = 0.0
+    for a, b, seam_x, severity in exposed_cantilever_pairs(before, side):
+        if contact_by_owner.get(a.id, 0.0) < 0.35 or contact_by_owner.get(b.id, 0.0) < 0.35:
+            continue
+        if candidate.wz <= max(a.wz, b.wz) + ALIGN_TOL:
+            continue
+        if not (candidate.x0 - ALIGN_TOL <= seam_x <= candidate.x1 + ALIGN_TOL):
+            continue
+        pair_contact = contact_by_owner[a.id] + contact_by_owner[b.id]
+        contact_score = min(1.0, pair_contact / max(1e-6, candidate.btype.width * 0.38))
+        center_score = 1.0 - min(
+            1.0,
+            abs(candidate.world_cx - seam_x) / max(1e-6, candidate.btype.width * 0.45),
+        )
+        best = max(best, 0.50 * severity + 0.35 * contact_score + 0.15 * center_score)
+    return best
+
+
+def side_reach(bridge: Bridge, side: str) -> float:
+    return bridge.left_reach if side == "L" else bridge.right_reach
+
+
+def side_reach_gain(before: Bridge, after: Bridge, side: str) -> float:
+    return max(0.0, side_reach(after, side) - side_reach(before, side))
+
+
+def strategy_closes_bridge(before: Bridge, after: Bridge, candidate: BrickInst, strategy: str) -> bool:
+    if not after.is_closing_brick(candidate.id):
+        return False
+    if strategy == "conservative":
+        if candidate.btype.base_key == "F":
+            return False
+        return before.remaining_gap <= CONSERVATIVE_CLOSING_MAX_GAP_W + CONTACT_TOL
+    return before.remaining_gap <= CLOSING_MAX_GAP_W + CONTACT_TOL
+
+
+def layer_key(z: float) -> float:
+    return round(z / max(1e-6, HEX_RISE / 2.0)) * (HEX_RISE / 2.0)
+
+
+def same_layer(a: float, b: float) -> bool:
+    return abs(layer_key(a) - layer_key(b)) <= ALIGN_TOL
+
+
+def side_bricks_on_layer(bridge: Bridge, side: str, z: float) -> List[BrickInst]:
+    return [
+        b for b in bridge.bricks
+        if side_for_x((b.x0 + b.x1) / 2.0) == side and same_layer(b.wz, z)
+    ]
+
+
+def is_behind_candidate(other: BrickInst, candidate: BrickInst, side: str) -> bool:
+    if side == "L":
+        return other.world_cx < candidate.world_cx - ALIGN_TOL
+    return other.world_cx > candidate.world_cx + ALIGN_TOL
+
+
+def aggressive_layer_constraint_ok(before: Bridge, candidate: BrickInst, side: str, reach_gain: float, closes_bridge: bool) -> bool:
+    if closes_bridge or reach_gain <= 0.05:
+        return True
+    rear = [
+        b for b in side_bricks_on_layer(before, side, candidate.wz)
+        if is_behind_candidate(b, candidate, side)
+    ]
+    return len(rear) >= AGGRESSIVE_LAYER_REAR_BRICKS
+
+
+def creates_unusable_foundation_island(before: Bridge, candidate: BrickInst, side: str) -> bool:
+    if not is_foundation_move(candidate):
+        return False
+    owner = owner_for_side(side)
+    span0, span1 = base_span_for_owner(owner)
+    x0 = max(span0, candidate.x0)
+    x1 = min(span1, candidate.x1)
+    if x1 - x0 <= 0.2:
+        return False
+    min_width = min(bt.width for bt in BTYPES.values())
+
+    intervals = low_foundation_intervals(before, owner) + [(x0, x1)]
+    intervals.sort()
+    merged: List[Tuple[float, float]] = []
+    for a, b in intervals:
+        if not merged or a > merged[-1][1] + ALIGN_TOL:
+            merged.append((a, b))
+        else:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], b))
+
+    left_gap = max(0.0, x0 - span0)
+    right_gap = max(0.0, span1 - x1)
+    left_dead = 0.2 < left_gap < min_width - 0.2 and not any(m[1] > span0 + ALIGN_TOL and m[1] <= x0 + ALIGN_TOL for m in merged if m[1] <= x0 + ALIGN_TOL)
+    right_dead = 0.2 < right_gap < min_width - 0.2 and not any(m[0] < span1 - ALIGN_TOL and m[0] >= x1 - ALIGN_TOL for m in merged if m[0] >= x1 - ALIGN_TOL)
+    return left_dead and right_dead
+
+
+def inset_over_effective_cantilever(before: Bridge, candidate: BrickInst, side: str, closes_bridge: bool) -> bool:
+    if closes_bridge:
+        return False
+    inset_tol = 1.0
+    min_overlap = 1.0
+    for lower in before.bricks:
+        if side_for_x((lower.x0 + lower.x1) / 2.0) != side:
+            continue
+        if reach_for_side(lower, side) <= 0.05:
+            continue
+        if candidate.wz <= lower.wz + ALIGN_TOL:
+            continue
+        hit = overlap(candidate.x0, candidate.x1, lower.x0, lower.x1)
+        if not hit or hit[1] - hit[0] < min_overlap:
+            continue
+        if side == "L" and candidate.x1 < lower.x1 - inset_tol:
+            return True
+        if side == "R" and candidate.x0 > lower.x0 + inset_tol:
+            return True
+    return False
+
+
+def conservative_rear_fill_score(before: Bridge, candidate: BrickInst, side: str, reach_gain: float) -> float:
+    if reach_gain > 0.05:
+        return 0.0
+    same = side_bricks_on_layer(before, side, candidate.wz)
+    if not same:
+        return 0.0
+    if side == "L":
+        front = max(b.x1 for b in same)
+        if candidate.x1 > front + ALIGN_TOL:
+            return 0.0
+        rear_gap = max(0.0, front - candidate.x1)
+    else:
+        front = min(b.x0 for b in same)
+        if candidate.x0 < front - ALIGN_TOL:
+            return 0.0
+        rear_gap = max(0.0, candidate.x0 - front)
+    return min(1.0, rear_gap / max(1.0, LAYOUT.base_w))
+
+
+def layer_intervals(bridge: Bridge, side: str, z: float) -> List[Tuple[float, float]]:
+    return merged_intervals(
+        [
+            (b.x0, b.x1)
+            for b in bridge.bricks
+            if side_for_x((b.x0 + b.x1) / 2.0) == side and same_layer(b.wz, z)
+        ]
+    )
+
+
+def interval_overlap_width(a: Sequence[Tuple[float, float]], b: Sequence[Tuple[float, float]]) -> float:
+    total = 0.0
+    for a0, a1 in a:
+        for b0, b1 in b:
+            total += max(0.0, min(a1, b1) - max(a0, b0))
+    return total
+
+
+def side_layer_levels(bridge: Bridge, side: str) -> List[float]:
+    levels: List[float] = []
+    for b in bridge.bricks:
+        if side_for_x((b.x0 + b.x1) / 2.0) != side:
+            continue
+        z = layer_key(b.wz)
+        if not any(abs(z - old) <= ALIGN_TOL for old in levels):
+            levels.append(z)
+    return sorted(levels)
+
+
+def layer_coverage_by_next_layer(bridge: Bridge, side: str, lower_z: float, upper_z: float) -> float:
+    lower = layer_intervals(bridge, side, lower_z)
+    if not lower:
+        return 1.0
+    upper = layer_intervals(bridge, side, upper_z)
+    return min(1.0, interval_overlap_width(lower, upper) / max(1e-6, union_width(lower)))
+
+
+def conservative_layer_constraint_ok(before: Bridge, after: Bridge, candidate: BrickInst, side: str, closes_bridge: bool) -> bool:
+    return True
+
+
+def conservative_single_layer_ok(before: Bridge, after: Bridge, candidate: BrickInst, side: str, closes_bridge: bool) -> bool:
+    if closes_bridge:
+        return True
+    cand_z = layer_key(candidate.wz)
+    for debt_side in ("L", "R"):
+        for z in side_layer_levels(before, debt_side):
+            if len(side_bricks_on_layer(before, debt_side, z)) == 1:
+                return side == debt_side and same_layer(candidate.wz, z)
+    after_layer = side_bricks_on_layer(after, side, candidate.wz)
+    if len(after_layer) == 1:
+        if is_foundation_move(candidate):
+            span0, span1 = base_span_for_owner(owner_for_side(side))
+            clipped = max(0.0, min(candidate.x1, span1) - max(candidate.x0, span0))
+            base_fit = clipped / max(1e-6, candidate.x1 - candidate.x0)
+            return candidate.btype.width <= SINGLE_LAYER_MAX_BRICK_WIDTH and base_fit >= 0.86
+        return candidate.btype.width <= SINGLE_LAYER_MAX_BRICK_WIDTH and lower_layer_fill_score(before, candidate, side) >= 0.65
+    return True
+
+
+def lower_before_upper_ok(before: Bridge, candidate: BrickInst, side: str, closes_bridge: bool) -> bool:
+    if closes_bridge:
+        return True
+    levels = side_layer_levels(before, side)
+    if not levels:
+        return True
+    return layer_key(candidate.wz) >= max(levels) - ALIGN_TOL
+
+
+def layer_fillable_gaps(bridge: Bridge, side: str, z: float) -> List[Tuple[float, float]]:
+    intervals = layer_intervals(bridge, side, z)
+    if not intervals:
+        return []
+    min_width = min(bt.width for bt in BTYPES.values()) - 0.2
+    gaps: List[Tuple[float, float]] = []
+
+    if z <= low_layer_limit() + ALIGN_TOL:
+        span0, span1 = base_span_for_owner(owner_for_side(side))
+        cursor = span0
+        for x0, x1 in intervals:
+            gap = (cursor, min(x0, span1))
+            if gap[1] - gap[0] >= min_width:
+                gaps.append(gap)
+            cursor = max(cursor, x1)
+        gap = (cursor, span1)
+        if gap[1] - gap[0] >= min_width:
+            gaps.append(gap)
+        return gaps
+
+    # Above the foundation, only internal holes are treated as blocking. Outer
+    # expansion is how cantilevers grow; internal gaps are the places a later
+    # brick would have to be inserted underneath an already higher structure.
+    for (_a0, a1), (b0, _b1) in zip(intervals, intervals[1:]):
+        if b0 - a1 >= min_width:
+            gaps.append((a1, b0))
+    return gaps
+
+
+def blocks_future_lower_fill(before: Bridge, candidate: BrickInst, side: str, closes_bridge: bool) -> bool:
+    if closes_bridge:
+        return False
+    levels = side_layer_levels(before, side)
+    if not levels:
+        return False
+    top = max(levels)
+    if layer_key(candidate.wz) <= top + ALIGN_TOL:
+        return False
+    return bool(layer_fillable_gaps(before, side, top))
+
+
+def lower_layer_fill_score(before: Bridge, candidate: BrickInst, side: str) -> float:
+    cand_z = layer_key(candidate.wz)
+    lower_levels = [z for z in side_layer_levels(before, side) if z < cand_z - ALIGN_TOL]
+    if not lower_levels:
+        return 0.0
+    lower = layer_intervals(before, side, max(lower_levels))
+    if not lower:
+        return 0.0
+    candidate_span = [(candidate.x0, candidate.x1)]
+    return min(1.0, interval_overlap_width(candidate_span, lower) / max(1e-6, candidate.x1 - candidate.x0))
+
+
+def low_height_bonus(bi: BrickInst) -> float:
+    return max(0.0, 1.0 - bi.wz / max(1e-6, low_layer_limit() + HEX_RISE))
+
+
+NEXT_REACH_CACHE: Dict[Tuple, float] = {}
+
+
+def next_stable_reach_potential(bridge: Bridge, side: str, required_margin: float) -> float:
+    cache_key = ("next_reach", bridge_state_key(bridge), side, round(required_margin, 3))
+    cached = NEXT_REACH_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    best = 0.0
+    for bt in BTYPES.values():
+        for wx in candidate_x_positions(bridge, bt, side):
+            for option in bridge.try_place_options(bt, wx, "robot", max_options=2):
+                sim = bridge.clone()
+                bi = BrickInst(
+                    sim.next_id,
+                    option.btype,
+                    option.wx,
+                    option.wz,
+                    "robot",
+                    list(option.contacts),
+                )
+                sim.bricks.append(bi)
+                sim.next_id += 1
+                sim.analyse()
+                if sim.min_margin >= required_margin or sim.is_closing_brick(bi.id):
+                    best = max(best, side_reach_gain(bridge, sim, side))
+    cache_put(NEXT_REACH_CACHE, cache_key, best)
+    return best
+
+
 def premature_height_penalty(bridge: Bridge, bi: BrickInst) -> float:
     if bridge.gap_coverage > 0.65:
         return 0.0
@@ -1491,8 +2541,8 @@ def premature_height_penalty(bridge: Bridge, bi: BrickInst) -> float:
 
 
 def snap_place_x(wx: float) -> float:
-    """Snap placements to the shared half-cell contour grid."""
-    return snap_to(wx, X_GRID)
+    """Snap placements to the projected hex-lattice pitch."""
+    return snap_to(wx, PLACE_GRID)
 
 
 def brick_bounds_center(bt: BrickType) -> float:
@@ -1501,20 +2551,19 @@ def brick_bounds_center(bt: BrickType) -> float:
 
 def candidate_x_positions(bridge: Bridge, bt: BrickType, side: str) -> List[float]:
     supports = support_polys(bridge.bricks)
-    xs = [x for _owner, spoly in supports for x, _z in spoly]
-    x_min = math.floor(min(xs) - bt.x_max - 1.0)
-    x_max = math.ceil(max(xs) - bt.x_min + 1.0)
+    support_edges = lattice_support_edges(bridge.bricks)
+    local_lower_edges = brick_cell_edges(bt, 0.0, 0.0, "lower", 0)
+    candidates: set[float] = set()
 
-    candidates = {
-        round((x_min + i * X_GRID), 6)
-        for i in range(int(round((x_max - x_min) / X_GRID)) + 1)
-    }
-    for _owner, spoly in supports:
-        for sx, _sz in spoly[:-1]:
-            for bx, _bz in bt.poly[:-1]:
-                snapped = snap_place_x(sx - bx)
-                for dx in (-X_GRID, 0.0, X_GRID):
-                    candidates.add(round(snapped + dx, 6))
+    for lx0, lz0, lx1, lz1, _ in local_lower_edges:
+        ldx = lx1 - lx0
+        ldz = lz1 - lz0
+        for sx0, sz0, sx1, sz1, _owner in support_edges:
+            if abs((sx1 - sx0) - ldx) > CONTACT_TOL:
+                continue
+            if abs((sz1 - sz0) - ldz) > CONTACT_TOL:
+                continue
+            candidates.add(round(snap_place_x(sx0 - lx0), 6))
 
     result: List[float] = []
     for xi in sorted(candidates):
@@ -1533,8 +2582,8 @@ def future_potential(bridge: Bridge, strategy: str) -> float:
     progress = bridge.gap_coverage
     low_fill = foundation_coverage(bridge)
     if strategy == "conservative":
-        return 2.0 * progress + 1.2 * balance + 1.3 * min(1.0, margin) + 1.1 * low_fill
-    return 3.1 * progress + 1.1 * balance + 0.65 * min(1.0, margin) + 0.75 * low_fill
+        return 1.0 * progress + 1.35 * balance + 1.65 * min(1.0, margin) + 2.35 * low_fill
+    return 3.75 * progress + 1.0 * balance + 0.70 * min(1.0, margin) + 0.80 * low_fill
 
 
 def recommend_immediate(bridge: Bridge, strategy: str, limit: int = 12) -> List[Rec]:
@@ -1546,14 +2595,23 @@ def recommend_immediate(bridge: Bridge, strategy: str, limit: int = 12) -> List[
     base_remaining = bridge.remaining_gap
     base_balance = reach_balance(bridge)
     base_foundation = foundation_average_coverage(bridge)
-    needs_foundation = foundation_stage_required(bridge, strategy)
+    progress_streak = no_progress_streak(bridge)
+    force_progress = strategy == "conservative" and progress_streak >= 4
+    near_closing = strategy == "conservative" and base_remaining <= CONSERVATIVE_CLOSE_PRIORITY_GAP_W + CONTACT_TOL
     cands: List[Rec] = []
+    urgent_reinforce_cands: List[Rec] = []
+    secondary_cands: List[Rec] = []
     fallback_cands: List[Rec] = []
     sides = (active_user_side(bridge),)
     if sides[0] is None:
         sides = ("L", "R")
 
     for side in sides:
+        side_foundation_before = foundation_coverage_for_side(bridge, side)
+        side_util_before = base_cell_utilization_for_side(bridge, side)
+        side_void_before = base_trapped_void_score_for_side(bridge, side)
+        needs_foundation = foundation_stage_required_for_side(bridge, strategy, side)
+        foundation_ready = not needs_foundation
         for bt in BTYPES.values():
             for wx in candidate_x_positions(bridge, bt, side):
                 for option in bridge.try_place_options(bt, wx, "robot"):
@@ -1572,78 +2630,442 @@ def recommend_immediate(bridge: Bridge, strategy: str, limit: int = 12) -> List[
                     margin_after = sim.min_margin
                     dm = margin_after - base_margin
                     closure_gain = max(0.0, base_remaining - sim.remaining_gap)
+                    reach_gain = side_reach_gain(bridge, sim, side)
                     balance_gain = base_balance - reach_balance(sim)
                     coverage_after = sim.gap_coverage
                     width = contact_width(bi.contacts)
+                    support_norm = normalized_contact_width(bi)
+                    margin_norm = normalized_margin(margin_after)
                     foundation = foundation_score(bridge, bi)
+                    side_foundation_gain = max(0.0, foundation_coverage_for_side(sim, side) - side_foundation_before)
+                    side_util_after = base_cell_utilization_for_side(sim, side)
+                    side_util_gain = max(0.0, side_util_after - side_util_before)
+                    side_void_after = base_trapped_void_score_for_side(sim, side)
+                    void_reduction = max(0.0, side_void_before - side_void_after)
+                    trapped_void_penalty = max(0.0, side_void_after - side_void_before)
                     foundation_gain = max(0.0, foundation_average_coverage(sim) - base_foundation)
                     packing = foundation_packing_score(sim)
-                    open_slot = foundation_open_slot_score(sim)
                     support_efficiency = foundation_support_efficiency(bi)
+                    joint_reinforcement = joint_reinforcement_score(bridge, bi)
+                    urgent_reinforcement = (
+                        urgent_joint_reinforcement_score(bridge, bi, side)
+                        if strategy == "conservative" and not near_closing
+                        else 0.0
+                    )
+                    low_bonus = low_height_bonus(bi)
                     height_penalty = premature_height_penalty(bridge, bi)
-                    if margin_after >= required_margin:
-                        intent = "cantilever" if closure_gain >= 0.05 else "reinforce"
-                        prep_penalty = 0.60 if closure_gain < 0.05 and base_margin >= prep_margin else 0.0
+                    stagnant_height_penalty = (
+                        max(0.0, bi.wz - low_layer_limit())
+                        if reach_gain < 0.05 and side_foundation_gain < 0.02
+                        else 0.0
+                    )
+                    spans_both = sim.is_closing_brick(bi.id)
+                    closes_bridge = strategy_closes_bridge(bridge, sim, bi, strategy)
+                    if not support_contact_ok(bi, closes_bridge):
+                        continue
+                    if not lower_before_upper_ok(bridge, bi, side, closes_bridge):
+                        continue
+                    if strategy == "conservative" and blocks_future_lower_fill(bridge, bi, side, closes_bridge):
+                        continue
+                    if strategy == "conservative" and spans_both and not closes_bridge:
+                        continue
+                    if strategy == "conservative" and creates_unusable_foundation_island(bridge, bi, side):
+                        continue
+                    if strategy == "conservative" and not conservative_layer_constraint_ok(bridge, sim, bi, side, closes_bridge):
+                        continue
+                    if not conservative_single_layer_ok(bridge, sim, bi, side, closes_bridge):
+                        continue
+                    tower_stack = (
+                        not closes_bridge
+                        and reach_gain < 0.05
+                        and side_util_gain < 0.02
+                        and side_foundation_gain < 0.02
+                        and void_reduction < 0.02
+                        and bi.wz > low_layer_limit() + HEX_RISE
+                    )
+                    if tower_stack:
+                        continue
+                    if not closes_bridge and not stable_enough_margin(margin_after):
+                        continue
+                    margin_ok = margin_after >= required_margin
+                    intent = "cantilever" if closure_gain >= 0.05 else "reinforce"
+                    prep_penalty = 0.60 if closure_gain < 0.05 and base_margin >= prep_margin else 0.0
+                    early_overhang_penalty = (
+                        3.0 * reach_gain if strategy == "conservative" and side_util_before < 0.60 else 0.0
+                    )
+                    early_overfill_penalty = (
+                        20.0 * max(0.0, side_util_after - 0.78)
+                        if strategy == "conservative" and side_util_before < 0.15
+                        else 0.0
+                    )
+                    if strategy == "conservative":
+                        rear_fill = conservative_rear_fill_score(bridge, bi, side, reach_gain)
+                        lower_fill = lower_layer_fill_score(bridge, bi, side)
+                        if side_util_before < 0.60:
+                            base_weight = 7.0
+                            reach_weight = 0.95
+                            no_progress_weight = 0.80
+                        elif side_util_before < 0.80:
+                            base_weight = 4.5
+                            reach_weight = 2.20
+                            no_progress_weight = 1.45
+                        else:
+                            base_weight = 1.8
+                            reach_weight = 6.00
+                            no_progress_weight = 7.50
+                        capped_margin = min(margin_norm, 0.85)
+                        mature_no_progress_penalty = (
+                            4.0 if side_util_before >= 0.80 and reach_gain < 0.05 and not closes_bridge else 0.0
+                        )
+                        score = (
+                            1.45 * capped_margin
+                            + 1.60 * support_norm
+                            + 0.95 * balance_gain
+                            + 0.75 * min(1.0, coverage_after)
+                            + base_weight * side_util_gain
+                            + 2.60 * void_reduction
+                            + 1.20 * side_foundation_gain
+                            + 1.90 * foundation_gain
+                            + 1.10 * packing
+                            + 0.80 * support_efficiency
+                            + 2.10 * joint_reinforcement
+                            + 9.00 * urgent_reinforcement
+                            + 0.45 * low_bonus
+                            + 2.80 * rear_fill
+                            + 2.40 * lower_fill
+                            + reach_weight * reach_gain
+                            + (4.25 if near_closing else 1.15) * closure_gain
+                            - 0.80 * max(0.0, -dm)
+                            - early_overhang_penalty
+                            - early_overfill_penalty
+                            - 1.55 * height_penalty
+                            - no_progress_weight * stagnant_height_penalty
+                            - mature_no_progress_penalty
+                            - 2.20 * trapped_void_penalty
+                            - (0.25 if not foundation_ready else 0.0) * max(0.0, reach_gain - max(0.0, side_util_gain) * 6.0)
+                            - 0.40 * prep_penalty
+                        )
+                    else:
+                        score = (
+                            0.55 * margin_after
+                            + 0.25 * width
+                            + 1.85 * closure_gain
+                            + 0.55 * balance_gain
+                            + 0.45 * coverage_after
+                            + 1.35 * joint_reinforcement
+                            + 0.55 * foundation
+                            + 2.15 * foundation_gain
+                            - 0.15 * max(0.0, -dm)
+                            - 0.45 * height_penalty
+                            - prep_penalty
+                        )
+                    if closes_bridge:
+                        intent = "close"
+                        score += 100.0 + 10.0 * max(0.0, margin_after)
+                    if not margin_ok and not closes_bridge:
+                        score -= 30.0 + 8.0 * max(0.0, required_margin - margin_after)
+                    if intent == "reinforce" and strategy == "conservative":
+                        score += 0.25
+                    if needs_foundation and is_foundation_move(bi):
                         if strategy == "conservative":
-                            score = (
-                                1.35 * margin_after
-                                + 0.45 * width
-                                + 0.80 * closure_gain
-                                + 0.35 * balance_gain
-                                + 0.20 * coverage_after
-                                + 1.10 * foundation
-                                + 3.25 * foundation_gain
-                                - 0.25 * max(0.0, -dm)
-                                - 0.85 * height_penalty
-                                - 0.35 * prep_penalty
-                            )
-                        else:
-                            score = (
-                                0.55 * margin_after
-                                + 0.25 * width
-                                + 1.85 * closure_gain
-                                + 0.55 * balance_gain
-                                + 0.45 * coverage_after
-                                + 0.55 * foundation
-                                + 2.15 * foundation_gain
-                                - 0.15 * max(0.0, -dm)
-                                - 0.45 * height_penalty
-                                - prep_penalty
-                            )
-                        if intent == "reinforce" and strategy == "conservative":
-                            score += 0.25
-                        if needs_foundation and is_foundation_move(bi):
-                            if strategy == "conservative":
-                                score = (
-                                    6.0 * foundation_gain
-                                    + 1.20 * foundation
-                                    + 2.40 * packing
-                                    + 2.20 * open_slot
-                                    + 1.80 * support_efficiency
-                                    + 0.75 * min(1.0, margin_after)
-                                    + 0.12 * width
-                                    - 0.20 * height_penalty
-                                )
+                            rear_fill = conservative_rear_fill_score(bridge, bi, side, reach_gain)
+                            lower_fill = lower_layer_fill_score(bridge, bi, side)
+                            if side_util_before < 0.60:
+                                base_weight = 10.0
+                                reach_weight = 0.70
+                            elif side_util_before < 0.80:
+                                base_weight = 5.5
+                                reach_weight = 1.70
                             else:
-                                score = (
-                                    5.0 * foundation_gain
-                                    + 0.90 * foundation
-                                    + 1.80 * packing
-                                    + 1.80 * open_slot
-                                    + 1.40 * support_efficiency
-                                    + 0.45 * min(1.0, margin_after)
-                                    + 0.08 * width
-                                    - 0.15 * height_penalty
-                                )
-                        rec = Rec(side, bt, wx, bi.wz, bi.contacts, score, margin_after, dm, closure_gain, intent)
-                        if needs_foundation and not is_foundation_move(bi):
-                            fallback_cands.append(rec)
+                                base_weight = 1.5
+                                reach_weight = 5.00
+                            mature_no_progress_penalty = (
+                                4.0 if side_util_before >= 0.80 and reach_gain < 0.05 and not closes_bridge else 0.0
+                            )
+                            score = (
+                                base_weight * side_util_gain
+                                + 3.50 * void_reduction
+                                + 2.20 * side_foundation_gain
+                                + 2.40 * foundation_gain
+                                + 2.70 * packing
+                                + 2.00 * support_efficiency
+                                + 2.30 * joint_reinforcement
+                                + 9.50 * urgent_reinforcement
+                                + 1.40 * support_norm
+                                + 1.00 * min(margin_norm, 0.85)
+                                + 0.95 * low_bonus
+                                + 3.20 * rear_fill
+                                + 1.80 * lower_fill
+                                - 0.35 * height_penalty
+                                + reach_weight * reach_gain
+                                - early_overhang_penalty
+                                - early_overfill_penalty
+                                - mature_no_progress_penalty
+                                - 2.40 * trapped_void_penalty
+                            )
                         else:
+                            score = (
+                                5.0 * foundation_gain
+                                + 0.90 * foundation
+                                + 1.80 * packing
+                                + 1.80 * foundation_open_slot_score(sim)
+                                + 1.40 * support_efficiency
+                                + 1.20 * joint_reinforcement
+                                + 0.45 * min(1.0, margin_after)
+                                + 0.08 * width
+                                - 0.15 * height_penalty
+                            )
+                    rec = Rec(side, bt, wx, bi.wz, bi.contacts, score, margin_after, dm, reach_gain, intent)
+                    if strategy == "conservative":
+                        classified = False
+                        if closes_bridge:
                             cands.append(rec)
+                            classified = True
+                        elif near_closing and reach_gain > 0.05:
+                            cands.append(rec)
+                            classified = True
+                        elif urgent_reinforcement > 0.10:
+                            urgent_reinforce_cands.append(rec)
+                            classified = True
+                        elif force_progress and reach_gain > 0.05:
+                            cands.append(rec)
+                            classified = True
+                        elif force_progress:
+                            fallback_cands.append(rec)
+                            classified = True
+                        elif not margin_ok:
+                            fallback_cands.append(rec)
+                            classified = True
+                        elif side_util_before < 0.65:
+                            if side_util_gain > 0.02 and is_foundation_move(bi):
+                                cands.append(rec)
+                                classified = True
+                            elif reach_gain > 0.05:
+                                secondary_cands.append(rec)
+                                classified = True
+                            elif side_util_gain > 0.02 or void_reduction > 0.02:
+                                secondary_cands.append(rec)
+                                classified = True
+                        else:
+                            if reach_gain > 0.05:
+                                cands.append(rec)
+                                classified = True
+                            elif side_util_gain > 0.02 or void_reduction > 0.02:
+                                secondary_cands.append(rec)
+                                classified = True
+                            elif (
+                                side_foundation_gain > 0.02
+                                and bi.wz <= low_layer_limit() + HEX_RISE
+                            ):
+                                secondary_cands.append(rec)
+                                classified = True
+                            elif (
+                                margin_after > base_margin + 0.10
+                                and bi.wz <= low_layer_limit() + HEX_RISE
+                            ):
+                                fallback_cands.append(rec)
+                                classified = True
+                        if not classified:
+                            fallback_cands.append(rec)
+                    elif needs_foundation and not is_foundation_move(bi):
+                        fallback_cands.append(rec)
+                    else:
+                        cands.append(rec)
 
-    active = cands or fallback_cands
-    active.sort(key=lambda r: (-r.score, r.side, r.bt.key, r.wx))
+    if urgent_reinforce_cands:
+        active = urgent_reinforce_cands
+        active.sort(key=lambda r: (-r.score, -r.margin_after, r.wz, r.side, r.bt.key, r.wx))
+    elif cands:
+        active = cands
+        if strategy == "conservative" and force_progress:
+            active.sort(key=lambda r: (-r.reach_gain, -r.margin_after, r.wz, r.side, r.bt.key, r.wx))
+        else:
+            active.sort(key=lambda r: (-r.score, r.side, r.bt.key, r.wx))
+    elif secondary_cands:
+        active = secondary_cands
+        active.sort(key=lambda r: (-r.score, r.side, r.bt.key, r.wx))
+    else:
+        active = fallback_cands
+        if strategy == "conservative":
+            active.sort(key=lambda r: (-r.reach_gain, r.wz, -r.margin_after, r.side, r.bt.key, r.wx))
+        else:
+            active.sort(key=lambda r: (-r.score, r.side, r.bt.key, r.wx))
     return active[:limit]
+
+
+def rec_is_placeable(bridge: Bridge, rec: Rec) -> bool:
+    placed = bridge.try_place(rec.bt, rec.wx, "robot", rec.wz)
+    if not placed:
+        return False
+    if material_overlaps_existing(placed.btype, placed.wx, placed.wz, bridge.bricks):
+        return False
+    if contact_width(placed.contacts) < 0.2:
+        return False
+    sim = bridge.clone()
+    bi = BrickInst(
+        sim.next_id,
+        placed.btype,
+        placed.wx,
+        placed.wz,
+        "robot",
+        list(placed.contacts),
+    )
+    sim.bricks.append(bi)
+    sim.next_id += 1
+    sim.analyse()
+    closes_bridge = sim.is_closing_brick(bi.id)
+    if not support_contact_ok(bi, closes_bridge):
+        return False
+    return stable_enough_margin(sim.min_margin) or closes_bridge
+
+
+def rec_satisfies_strategy_constraints(bridge: Bridge, rec: Rec, strategy: str) -> bool:
+    placed = bridge.try_place(rec.bt, rec.wx, "robot", rec.wz)
+    if not placed:
+        return False
+    sim = bridge.clone()
+    bi = BrickInst(sim.next_id, placed.btype, placed.wx, placed.wz, "robot", list(placed.contacts))
+    sim.bricks.append(bi)
+    sim.next_id += 1
+    sim.analyse()
+    spans_both = sim.is_closing_brick(bi.id)
+    closes_bridge = strategy_closes_bridge(bridge, sim, bi, strategy)
+    if not support_contact_ok(bi, closes_bridge):
+        return False
+    if not lower_before_upper_ok(bridge, bi, rec.side, closes_bridge):
+        return False
+    if strategy == "conservative" and blocks_future_lower_fill(bridge, bi, rec.side, closes_bridge):
+        return False
+    if strategy == "conservative" and spans_both and not closes_bridge:
+        return False
+    if strategy == "conservative" and creates_unusable_foundation_island(bridge, bi, rec.side):
+        return False
+    if not conservative_single_layer_ok(bridge, sim, bi, rec.side, closes_bridge):
+        return False
+    if strategy == "aggressive":
+        return True
+    if strategy == "conservative":
+        return conservative_layer_constraint_ok(bridge, sim, bi, rec.side, closes_bridge)
+    return True
+
+
+def emergency_recommend(bridge: Bridge, strategy: str, top_n: int = 4) -> List[Rec]:
+    if bridge.bridge_succeeded or bridge.brick_exhausted:
+        return []
+    sides: List[str] = []
+    focus = active_user_side(bridge)
+    if focus:
+        sides.append(focus)
+        sides.append("R" if focus == "L" else "L")
+    else:
+        sides = ["L", "R"]
+
+    cands: List[Rec] = []
+    base_margin = bridge.min_margin if bridge.joints else 1.0
+    base_remaining = bridge.remaining_gap
+    for side in sides:
+        for bt in BTYPES.values():
+            for wx in candidate_x_positions(bridge, bt, side):
+                for option in bridge.try_place_options(bt, wx, "robot", max_options=8):
+                    sim = bridge.clone()
+                    bi = BrickInst(
+                        sim.next_id,
+                        option.btype,
+                        option.wx,
+                        option.wz,
+                        "robot",
+                        list(option.contacts),
+                    )
+                    sim.bricks.append(bi)
+                    sim.next_id += 1
+                    sim.analyse()
+                    margin_after = sim.min_margin
+                    reach_gain = side_reach_gain(bridge, sim, side)
+                    closure_gain = max(0.0, base_remaining - sim.remaining_gap)
+                    spans_both = sim.is_closing_brick(bi.id)
+                    closes_bridge = strategy_closes_bridge(bridge, sim, bi, strategy)
+                    if not support_contact_ok(bi, closes_bridge):
+                        continue
+                    if not lower_before_upper_ok(bridge, bi, side, closes_bridge):
+                        continue
+                    if strategy == "conservative" and blocks_future_lower_fill(bridge, bi, side, closes_bridge):
+                        continue
+                    if strategy == "conservative" and spans_both and not closes_bridge:
+                        continue
+                    if strategy == "conservative" and creates_unusable_foundation_island(bridge, bi, side):
+                        continue
+                    if not conservative_single_layer_ok(bridge, sim, bi, side, closes_bridge):
+                        continue
+                    if not closes_bridge and not stable_enough_margin(margin_after):
+                        continue
+                    joint_reinforcement = joint_reinforcement_score(bridge, bi)
+                    intent = "close" if closes_bridge else ("cantilever" if reach_gain > 0.05 else "reinforce")
+                    score = (
+                        20.0
+                        + 6.0 * reach_gain
+                        + 4.0 * closure_gain
+                        + 2.0 * joint_reinforcement
+                        + 2.0 * min(1.0, max(-1.0, margin_after))
+                        - 0.20 * max(0.0, option.wz - low_layer_limit())
+                    )
+                    if closes_bridge:
+                        score += 100.0
+                    cands.append(
+                        Rec(side, bt, wx, option.wz, list(option.contacts), score, margin_after, margin_after - base_margin, reach_gain, intent)
+                    )
+    cands.sort(key=lambda r: (-r.score, -r.margin_after, -r.reach_gain, r.wz, r.side, r.bt.key, r.wx))
+    return cands[:top_n]
+
+
+def guaranteed_recommend(bridge: Bridge, strategy: str, top_n: int = 4) -> List[Rec]:
+    if bridge.bridge_succeeded or bridge.brick_exhausted:
+        return []
+    sides: List[str] = []
+    focus = active_user_side(bridge)
+    if focus:
+        sides.extend([focus, "R" if focus == "L" else "L"])
+    else:
+        sides.extend(["L", "R"])
+
+    cands: List[Rec] = []
+    base_margin = bridge.min_margin if bridge.joints else 1.0
+    base_remaining = bridge.remaining_gap
+    for side in sides:
+        for bt in BTYPES.values():
+            for wx in candidate_x_positions(bridge, bt, side):
+                for option in bridge.try_place_options(bt, wx, "robot", max_options=12):
+                    sim = bridge.clone()
+                    bi = BrickInst(sim.next_id, option.btype, option.wx, option.wz, "robot", list(option.contacts))
+                    sim.bricks.append(bi)
+                    sim.next_id += 1
+                    sim.analyse()
+                    spans_both = sim.is_closing_brick(bi.id)
+                    closes_bridge = strategy_closes_bridge(bridge, sim, bi, strategy)
+                    if strategy == "conservative" and spans_both and not closes_bridge:
+                        continue
+                    if not support_contact_ok(bi, closes_bridge):
+                        continue
+                    if not closes_bridge and not stable_enough_margin(sim.min_margin):
+                        continue
+                    reach_gain = side_reach_gain(bridge, sim, side)
+                    closure_gain = max(0.0, base_remaining - sim.remaining_gap)
+                    joint_reinforcement = joint_reinforcement_score(bridge, bi)
+                    intent = "close" if closes_bridge else ("cantilever" if reach_gain > 0.05 else "reinforce")
+                    score = (
+                        100.0 * (1 if closes_bridge else 0)
+                        + 4.0 * closure_gain
+                        + 2.0 * reach_gain
+                        + 1.5 * joint_reinforcement
+                        + 1.2 * normalized_margin(sim.min_margin)
+                        + 0.5 * normalized_contact_width(bi)
+                        - 0.05 * option.wz
+                    )
+                    cands.append(
+                        Rec(side, bt, wx, option.wz, list(option.contacts), score, sim.min_margin, sim.min_margin - base_margin, reach_gain, intent)
+                    )
+    cands = [rec for rec in cands if rec_is_placeable(bridge, rec)]
+    cands.sort(key=lambda r: (-r.score, -r.margin_after, -r.reach_gain, r.wz, r.side, r.bt.key, r.wx))
+    return cands[:top_n]
 
 
 def recommend(bridge: Bridge, strategy: str, top_n: int = 4) -> List[Rec]:
@@ -1659,12 +3081,25 @@ def recommend(bridge: Bridge, strategy: str, top_n: int = 4) -> List[Rec]:
         if sim.place(rec.bt, rec.wx, "robot", rec.wz):
             rec.score += lookahead_weight * future_potential(sim, strategy)
     cands.sort(key=lambda r: (-r.score, r.side, r.bt.key, r.wx))
-    result = cands[:top_n]
+    result = [
+        rec for rec in cands
+        if rec_is_placeable(bridge, rec) and rec_satisfies_strategy_constraints(bridge, rec, strategy)
+    ][:top_n]
+    if strategy != "aggressive":
+        if not result:
+            result = [
+                rec for rec in emergency_recommend(bridge, strategy, max(50, top_n * 20))
+                if rec_is_placeable(bridge, rec) and rec_satisfies_strategy_constraints(bridge, rec, strategy)
+            ][:top_n]
+    if not result:
+        result = guaranteed_recommend(bridge, strategy, top_n)
     cache_put(RECOMMEND_CACHE, cache_key, [copy_rec(rec) for rec in result])
     return [copy_rec(rec) for rec in result]
 
 
 def evaluate_human(before: Bridge, after: Bridge, placed: BrickInst) -> Tuple[str, str]:
+    if after.is_closing_brick(placed.id):
+        return "nod", "Robot nods: closing brick accepted"
     if after.min_margin < 0.0:
         return "remove", "Robot rejects: COM outside support"
     if after.min_margin < MIN_ACCEPT_MARGIN:
@@ -1844,7 +3279,7 @@ class UI:
 
     def draw_brick(self, b: BrickInst) -> None:
         pts = brick_points(b.btype, b.wx, b.wz)
-        base = BRICK_COLS[b.btype.key]
+        base = BRICK_COLS[brick_color_key(b.btype)]
         fill = lerp(base, margin_color(b.margin), 0.28)
         outline = tuple(max(0, c - 58) for c in base)
         alpha = 224 if b.actor == "human" else 204
@@ -1857,7 +3292,7 @@ class UI:
 
     def draw_ghost(self, bt: BrickType, wx: float, wz: float, alpha: int, outline_alpha: int = 120) -> None:
         pts = brick_points(bt, wx, wz)
-        col = BRICK_COLS[bt.key]
+        col = BRICK_COLS[brick_color_key(bt)]
         layer = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
         pygame.draw.polygon(layer, col + (alpha,), pts)
         self.sc.blit(layer, (0, 0))
@@ -1866,7 +3301,7 @@ class UI:
         self.sc.blit(line_layer, (0, 0))
 
     def draw_brick_icon(self, bt: BrickType, rect: pygame.Rect, selected: bool) -> None:
-        col = BRICK_COLS[bt.key]
+        col = BRICK_COLS[brick_color_key(bt)]
         bg = (35, 37, 45) if not selected else (48, 51, 62)
         pygame.draw.rect(self.sc, bg, rect, border_radius=7)
         if selected:
@@ -1984,7 +3419,7 @@ class UI:
 
         row("Next recommendation", self.f16, PANEL_TEXT)
         if not recs:
-            row("No stable candidate", self.f12, RED)
+            row("Searching move", self.f12, ORANGE)
         for i, r in enumerate(recs[:3]):
             col = BLUE if i == 0 else PANEL_TEXT
             row(f"{i + 1}. {r.side}  brick {r.bt.key}  x={r.wx:.1f}  {r.intent}", self.f12, col, 3)
@@ -1996,7 +3431,7 @@ class UI:
         by = y
         item_w = (width - 10) // 2
         item_h = 42
-        for k in BRICK_SEQ:
+        for k in BRICK_LIBRARY_KEYS:
             bt = BTYPES[k]
             rect = pygame.Rect(bx, by, item_w, item_h)
             self.draw_brick_icon(bt, rect, k == sel)
@@ -2011,29 +3446,59 @@ class UI:
             "Left click: human move",
             "Space: robot places ghost",
             "S strategy   Z undo   R reset",
-            "A-F brick   Q quit",
+            "A-F brick   T flip   Q quit",
         ):
             row(line, self.f12, PANEL_MUTED, 4)
 
 
 def robot_place_recommendation(bridge: Bridge, strategy: str) -> Tuple[List[Rec], str, str]:
     if bridge.bridge_succeeded:
+        log_event("ROBOT", f"skip: already succeeded | {fmt_state(bridge)}")
         return [], "Build already succeeded", "nod"
     if bridge.brick_exhausted:
+        log_event("ROBOT", f"skip: bricks exhausted | {fmt_state(bridge)}")
         return [], "Build failed: bricks exhausted", "shake"
     recs = recommend(bridge, strategy)
+    log_recommendations(recs, f"robot strategy={strategy}")
     if not recs:
-        return recs, "Robot waits: no stable move", "shake"
+        log_event("ROBOT", f"emergency empty | {fmt_state(bridge)}")
+        return guaranteed_recommend(bridge, strategy, 4), "Robot recalculating move", "shake"
+    placed: Optional[BrickInst] = None
     r = recs[0]
-    placed = bridge.place(r.bt, r.wx, "robot", r.wz)
+    for rec in recs:
+        r = rec
+        placed = bridge.place(r.bt, r.wx, "robot", r.wz)
+        if placed:
+            if bridge.is_closing_brick(placed.id) or stable_enough_margin(bridge.min_margin):
+                break
+            log_event(
+                "ROBOT",
+                f"rejected unstable candidate {fmt_brick(placed)} margin={bridge.min_margin:.2f} | {fmt_state(bridge)}",
+            )
+            bridge.remove_id(placed.id)
+            placed = None
+            continue
+        log_event("ROBOT", f"failed candidate {r.bt.key} wx={r.wx:.2f} wz={r.wz:.2f} | {fmt_state(bridge)}")
     if not placed:
-        return recommend(bridge, strategy), "Robot move failed", "shake"
-    return recommend(bridge, strategy), f"Robot placed {r.bt.key} on {r.side}", "nod"
+        for rec in guaranteed_recommend(bridge, strategy, 8):
+            r = rec
+            placed = bridge.place(r.bt, r.wx, "robot", r.wz)
+            if placed:
+                break
+        if not placed:
+            next_recs = guaranteed_recommend(bridge, strategy, 4)
+            log_recommendations(next_recs, "after guaranteed retry")
+            return next_recs, "Robot recalculating move", "shake"
+    log_event("ROBOT", f"placed {fmt_brick(placed)} | {fmt_state(bridge)}")
+    next_recs = recommend(bridge, strategy)
+    log_recommendations(next_recs, "after robot")
+    return next_recs, f"Robot placed {r.bt.key} on {r.side}", "nod"
 
 
 def set_base_width(span: int, bridge: Bridge) -> None:
     LAYOUT.base_span = span
     bridge.reset()
+    log_event("SCENE", f"base reset span={span} | {fmt_state(bridge)}")
 
 
 def main() -> None:
@@ -2049,6 +3514,8 @@ def main() -> None:
     message = ""
     reaction = ""
     recs = recommend(bridge, strategy)
+    log_event("START", f"app started strategy={strategy} | {fmt_state(bridge)}")
+    log_recommendations(recs, "initial")
 
     while True:
         mx, my = pygame.mouse.get_pos()
@@ -2066,21 +3533,31 @@ def main() -> None:
                     sys.exit()
                 if key in BTYPES:
                     selected = key
+                    log_event("INPUT", f"selected brick {selected}")
+                elif ev.key == pygame.K_t:
+                    selected = toggle_flip_key(selected)
+                    message = f"Selected {selected}"
+                    reaction = ""
+                    log_event("INPUT", f"flipped selection to {selected}")
                 elif key in {"5", "9"}:
                     set_base_width(int(key), bridge)
                     message = f"Base reset to {key}-span"
                     reaction = ""
                     recs = recommend(bridge, strategy)
+                    log_recommendations(recs, "after base reset")
                 elif ev.key == pygame.K_3:
                     set_base_width(13, bridge)
                     message = "Base reset to 13-span"
                     reaction = ""
                     recs = recommend(bridge, strategy)
+                    log_recommendations(recs, "after base reset")
                 elif ev.key == pygame.K_s:
                     strategy = "aggressive" if strategy == "conservative" else "conservative"
                     recs = recommend(bridge, strategy)
                     message = f"Strategy changed to {strategy}"
                     reaction = ""
+                    log_event("INPUT", f"strategy changed to {strategy} | {fmt_state(bridge)}")
+                    log_recommendations(recs, "after strategy")
                 elif ev.key == pygame.K_SPACE:
                     recs, message, reaction = robot_place_recommendation(bridge, strategy)
                 elif ev.key == pygame.K_z:
@@ -2088,11 +3565,15 @@ def main() -> None:
                     message = f"Undo {removed.btype.key}" if removed else "Nothing to undo"
                     reaction = ""
                     recs = recommend(bridge, strategy)
+                    log_event("UNDO", f"removed={fmt_brick(removed)} | {fmt_state(bridge)}")
+                    log_recommendations(recs, "after undo")
                 elif ev.key == pygame.K_r:
                     bridge.reset()
                     message = "Scene reset"
                     reaction = ""
                     recs = recommend(bridge, strategy)
+                    log_event("SCENE", f"reset | {fmt_state(bridge)}")
+                    log_recommendations(recs, "after reset")
 
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and mx < PANEL_X:
                 bt = BTYPES[selected]
@@ -2102,11 +3583,16 @@ def main() -> None:
                 if not placed:
                     message = "No support below that placement"
                     reaction = "shake"
+                    log_event("HUMAN", f"invalid {selected} wx={wx:.2f} mouse=({mx},{my}) | {fmt_state(bridge)}")
                 else:
+                    log_event("HUMAN", f"placed {fmt_brick(placed)} | before={fmt_state(before)} after={fmt_state(bridge)}")
                     reaction, message = evaluate_human(before, bridge, placed)
+                    log_event("EVAL", f"reaction={reaction} message='{message}' closing={bridge.is_closing_brick(placed.id)} | {fmt_state(bridge)}")
                     if reaction == "remove":
                         bridge.remove_id(placed.id)
                         recs = recommend(bridge, strategy)
+                        log_event("HUMAN", f"removed rejected brick id={placed.id} | {fmt_state(bridge)}")
+                        log_recommendations(recs, "after reject")
                     else:
                         recs, robot_message, robot_reaction = robot_place_recommendation(bridge, strategy)
                         message = f"{message}; {robot_message}"

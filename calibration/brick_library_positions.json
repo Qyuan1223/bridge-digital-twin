@@ -1,0 +1,1487 @@
+{
+  "version": 1,
+  "unit": "mm",
+  "created_at": "2026-07-16T16:31:11",
+  "updated_at": "2026-07-16T16:31:11",
+  "source": "brick_library_probe.py",
+  "notes": "",
+  "origin": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.0,
+    "yaw": 0.0
+  },
+  "gripper": {
+    "default_yaw": null,
+    "open_angle": 100.0,
+    "close_angle": 75.0,
+    "pickup_z_offset": 0.0,
+    "safe_z": null
+  },
+  "slot_counts": {
+    "A": 6,
+    "B": 6,
+    "C": 6,
+    "D": 5,
+    "E": 5,
+    "F": 5
+  },
+  "orientation_aliases": {
+    "normal": "unflipped/original brick orientation",
+    "flipped": "180-degree flipped brick orientation"
+  },
+  "slots": [
+    {
+      "id": "A_N_01",
+      "brick": "A",
+      "orientation": "normal",
+      "brick_key": "A",
+      "slot_index": 1,
+      "pose": {
+        "x": -245.0,
+        "y": 67.1,
+        "z": 125.0,
+        "yaw": 125.0
+      },
+      "relative_pose": {
+        "x": -245.0,
+        "y": 67.1,
+        "z": 125.0,
+        "yaw": 125.0
+      },
+      "recorded": true,
+      "recorded_at": "2026-07-16T16:31:11",
+      "note": ""
+    },
+    {
+      "id": "A_N_02",
+      "brick": "A",
+      "orientation": "normal",
+      "brick_key": "A",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_N_03",
+      "brick": "A",
+      "orientation": "normal",
+      "brick_key": "A",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_N_04",
+      "brick": "A",
+      "orientation": "normal",
+      "brick_key": "A",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_N_05",
+      "brick": "A",
+      "orientation": "normal",
+      "brick_key": "A",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_N_06",
+      "brick": "A",
+      "orientation": "normal",
+      "brick_key": "A",
+      "slot_index": 6,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_F_01",
+      "brick": "A",
+      "orientation": "flipped",
+      "brick_key": "A'",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_F_02",
+      "brick": "A",
+      "orientation": "flipped",
+      "brick_key": "A'",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_F_03",
+      "brick": "A",
+      "orientation": "flipped",
+      "brick_key": "A'",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_F_04",
+      "brick": "A",
+      "orientation": "flipped",
+      "brick_key": "A'",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_F_05",
+      "brick": "A",
+      "orientation": "flipped",
+      "brick_key": "A'",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "A_F_06",
+      "brick": "A",
+      "orientation": "flipped",
+      "brick_key": "A'",
+      "slot_index": 6,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_N_01",
+      "brick": "B",
+      "orientation": "normal",
+      "brick_key": "B",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_N_02",
+      "brick": "B",
+      "orientation": "normal",
+      "brick_key": "B",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_N_03",
+      "brick": "B",
+      "orientation": "normal",
+      "brick_key": "B",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_N_04",
+      "brick": "B",
+      "orientation": "normal",
+      "brick_key": "B",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_N_05",
+      "brick": "B",
+      "orientation": "normal",
+      "brick_key": "B",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_N_06",
+      "brick": "B",
+      "orientation": "normal",
+      "brick_key": "B",
+      "slot_index": 6,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_F_01",
+      "brick": "B",
+      "orientation": "flipped",
+      "brick_key": "B'",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_F_02",
+      "brick": "B",
+      "orientation": "flipped",
+      "brick_key": "B'",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_F_03",
+      "brick": "B",
+      "orientation": "flipped",
+      "brick_key": "B'",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_F_04",
+      "brick": "B",
+      "orientation": "flipped",
+      "brick_key": "B'",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_F_05",
+      "brick": "B",
+      "orientation": "flipped",
+      "brick_key": "B'",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "B_F_06",
+      "brick": "B",
+      "orientation": "flipped",
+      "brick_key": "B'",
+      "slot_index": 6,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_N_01",
+      "brick": "C",
+      "orientation": "normal",
+      "brick_key": "C",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_N_02",
+      "brick": "C",
+      "orientation": "normal",
+      "brick_key": "C",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_N_03",
+      "brick": "C",
+      "orientation": "normal",
+      "brick_key": "C",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_N_04",
+      "brick": "C",
+      "orientation": "normal",
+      "brick_key": "C",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_N_05",
+      "brick": "C",
+      "orientation": "normal",
+      "brick_key": "C",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_N_06",
+      "brick": "C",
+      "orientation": "normal",
+      "brick_key": "C",
+      "slot_index": 6,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_F_01",
+      "brick": "C",
+      "orientation": "flipped",
+      "brick_key": "C'",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_F_02",
+      "brick": "C",
+      "orientation": "flipped",
+      "brick_key": "C'",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_F_03",
+      "brick": "C",
+      "orientation": "flipped",
+      "brick_key": "C'",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_F_04",
+      "brick": "C",
+      "orientation": "flipped",
+      "brick_key": "C'",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_F_05",
+      "brick": "C",
+      "orientation": "flipped",
+      "brick_key": "C'",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "C_F_06",
+      "brick": "C",
+      "orientation": "flipped",
+      "brick_key": "C'",
+      "slot_index": 6,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_N_01",
+      "brick": "D",
+      "orientation": "normal",
+      "brick_key": "D",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_N_02",
+      "brick": "D",
+      "orientation": "normal",
+      "brick_key": "D",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_N_03",
+      "brick": "D",
+      "orientation": "normal",
+      "brick_key": "D",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_N_04",
+      "brick": "D",
+      "orientation": "normal",
+      "brick_key": "D",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_N_05",
+      "brick": "D",
+      "orientation": "normal",
+      "brick_key": "D",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_F_01",
+      "brick": "D",
+      "orientation": "flipped",
+      "brick_key": "D'",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_F_02",
+      "brick": "D",
+      "orientation": "flipped",
+      "brick_key": "D'",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_F_03",
+      "brick": "D",
+      "orientation": "flipped",
+      "brick_key": "D'",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_F_04",
+      "brick": "D",
+      "orientation": "flipped",
+      "brick_key": "D'",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "D_F_05",
+      "brick": "D",
+      "orientation": "flipped",
+      "brick_key": "D'",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_N_01",
+      "brick": "E",
+      "orientation": "normal",
+      "brick_key": "E",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_N_02",
+      "brick": "E",
+      "orientation": "normal",
+      "brick_key": "E",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_N_03",
+      "brick": "E",
+      "orientation": "normal",
+      "brick_key": "E",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_N_04",
+      "brick": "E",
+      "orientation": "normal",
+      "brick_key": "E",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_N_05",
+      "brick": "E",
+      "orientation": "normal",
+      "brick_key": "E",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_F_01",
+      "brick": "E",
+      "orientation": "flipped",
+      "brick_key": "E'",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_F_02",
+      "brick": "E",
+      "orientation": "flipped",
+      "brick_key": "E'",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_F_03",
+      "brick": "E",
+      "orientation": "flipped",
+      "brick_key": "E'",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_F_04",
+      "brick": "E",
+      "orientation": "flipped",
+      "brick_key": "E'",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "E_F_05",
+      "brick": "E",
+      "orientation": "flipped",
+      "brick_key": "E'",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_N_01",
+      "brick": "F",
+      "orientation": "normal",
+      "brick_key": "F",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_N_02",
+      "brick": "F",
+      "orientation": "normal",
+      "brick_key": "F",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_N_03",
+      "brick": "F",
+      "orientation": "normal",
+      "brick_key": "F",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_N_04",
+      "brick": "F",
+      "orientation": "normal",
+      "brick_key": "F",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_N_05",
+      "brick": "F",
+      "orientation": "normal",
+      "brick_key": "F",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_F_01",
+      "brick": "F",
+      "orientation": "flipped",
+      "brick_key": "F'",
+      "slot_index": 1,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_F_02",
+      "brick": "F",
+      "orientation": "flipped",
+      "brick_key": "F'",
+      "slot_index": 2,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_F_03",
+      "brick": "F",
+      "orientation": "flipped",
+      "brick_key": "F'",
+      "slot_index": 3,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_F_04",
+      "brick": "F",
+      "orientation": "flipped",
+      "brick_key": "F'",
+      "slot_index": 4,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    },
+    {
+      "id": "F_F_05",
+      "brick": "F",
+      "orientation": "flipped",
+      "brick_key": "F'",
+      "slot_index": 5,
+      "pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "relative_pose": {
+        "x": null,
+        "y": null,
+        "z": null,
+        "yaw": null
+      },
+      "recorded": false,
+      "recorded_at": null,
+      "note": ""
+    }
+  ]
+}
